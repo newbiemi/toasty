@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import type { Task } from "@/types/task";
+import { useState, useEffect, useRef } from "react";
+import type { Task, Subtask } from "@/types/task";
 import Cat from "./Cat";
 
 // ─── Palette ─────────────────────────────────
@@ -18,6 +18,7 @@ const C = {
   high: "#c0492f",
   medium: "#c8880a",
   low: "#5a7a3a",
+  overlay: "rgba(0,0,0,0.5)",
 };
 
 const STATUS_COLS: { key: Task["status"]; label: string; color: string }[] = [
@@ -38,6 +39,12 @@ const monthDay = (ds: string) =>
 const todayStr = () => new Date().toISOString().split("T")[0];
 const isOverdue = (due: string | null, status: string) =>
   due != null && status !== "done" && due < todayStr();
+
+// Reject non-YYYY-MM-DD strings so "tomorrow" / "null" strings don't reach the DB
+const safeDate = (v: any): string | null => {
+  if (!v || v === "null") return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : null;
+};
 
 function nextIds(tasks: Task[], count: number): string[] {
   const max = tasks.reduce((m, t) => {
@@ -85,8 +92,25 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+const fieldLabel: React.CSSProperties = {
+  fontFamily: "var(--font-pixel)",
+  fontSize: 9,
+  color: C.muted,
+  letterSpacing: "0.06em",
+  display: "block",
+  marginBottom: 3,
+};
+
 // ─── Kanban Card ─────────────────────────────
-function KanbanCard({ task, onDelete }: { task: Task; onDelete: () => void }) {
+function KanbanCard({
+  task,
+  onDelete,
+  onClick,
+}: {
+  task: Task;
+  onDelete: () => void;
+  onClick: () => void;
+}) {
   const overdue = isOverdue(task.dueDate, task.status);
   const pc = PRI_COLORS[task.priority] ?? PRI_COLORS.medium;
   const subs = task.subtasks ?? [];
@@ -95,6 +119,7 @@ function KanbanCard({ task, onDelete }: { task: Task; onDelete: () => void }) {
   return (
     <div
       draggable
+      onClick={onClick}
       style={{
         ...card,
         borderLeft: `4px solid ${overdue ? C.high : pc.border}`,
@@ -116,7 +141,7 @@ function KanbanCard({ task, onDelete }: { task: Task; onDelete: () => void }) {
           )}
         </div>
         <span
-          onClick={onDelete}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
           style={{ color: C.muted, cursor: "pointer", fontSize: 11, flexShrink: 0, lineHeight: 1 }}
         >
           ✕
@@ -141,11 +166,305 @@ function KanbanCard({ task, onDelete }: { task: Task; onDelete: () => void }) {
             {monthDay(task.dueDate)}
           </span>
         )}
+        {task.startDate && !task.dueDate && (
+          <span style={{ fontSize: 9, color: C.muted, fontFamily: "var(--font-pixel)" }}>
+            from {monthDay(task.startDate)}
+          </span>
+        )}
+        {task.notes && (
+          <span style={{ fontSize: 9, color: C.muted, fontFamily: "var(--font-pixel)" }} title={task.notes}>
+            📝
+          </span>
+        )}
+        {(task.links ?? []).length > 0 && (
+          <span style={{ fontSize: 9, color: C.muted, fontFamily: "var(--font-pixel)" }}>
+            🔗{task.links.length}
+          </span>
+        )}
         {subs.length > 0 && (
           <span style={{ fontSize: 9, color: C.muted, fontFamily: "var(--font-pixel)", marginLeft: "auto" }}>
             {doneSubs}/{subs.length}✓
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Modal ───────────────────────────────
+function TaskModal({
+  task,
+  onSave,
+  onClose,
+}: {
+  task: Task;
+  onSave: (t: Task) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [t, setT] = useState<Task>({ ...task });
+  const [adjustText, setAdjustText] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const [newLink, setNewLink] = useState("");
+  const [newSubtask, setNewSubtask] = useState("");
+
+  const set = (patch: Partial<Task>) => setT((prev) => ({ ...prev, ...patch }));
+
+  const mergeAdjusted = (prev: Task, patch: any): Task => ({
+    ...prev, ...patch,
+    id: prev.id, createdAt: prev.createdAt,
+    updatedAt: new Date().toISOString(),
+    // Sanitize dates — model may return relative strings like "tomorrow"
+    dueDate: safeDate(patch.dueDate ?? prev.dueDate),
+    startDate: safeDate(patch.startDate ?? prev.startDate),
+  });
+
+  const handleAdjust = async () => {
+    if (!adjustText.trim()) return;
+    setAdjusting(true);
+    try {
+      const result = await window.toasty.adjust(JSON.stringify(t), adjustText.trim());
+      if (Array.isArray(result) && result.length > 0) {
+        setT((prev) => mergeAdjusted(prev, result[0]));
+      } else if (result && typeof result === "object") {
+        setT((prev) => mergeAdjusted(prev, result));
+      }
+      setAdjustText("");
+    } catch {
+      // silently ignore — modal stays open
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
+  const addLink = () => {
+    const l = newLink.trim();
+    if (!l) return;
+    set({ links: [...(t.links ?? []), l] });
+    setNewLink("");
+  };
+
+  const addSubtask = () => {
+    const s = newSubtask.trim();
+    if (!s) return;
+    set({ subtasks: [...(t.subtasks ?? []), { text: s, done: false }] });
+    setNewSubtask("");
+  };
+
+  const toggleSubtask = (i: number) => {
+    const next = (t.subtasks ?? []).map((s, idx) => idx === i ? { ...s, done: !s.done } : s);
+    set({ subtasks: next });
+  };
+
+  const removeSubtask = (i: number) => {
+    set({ subtasks: (t.subtasks ?? []).filter((_, idx) => idx !== i) });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: C.overlay,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: C.cream, border: `3px solid ${C.border}`,
+          width: 520, maxHeight: "88vh", overflowY: "auto",
+          padding: 20, boxSizing: "border-box",
+          display: "flex", flexDirection: "column", gap: 12,
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: "var(--font-pixel)", fontSize: 11, color: C.text, letterSpacing: "0.06em" }}>
+            EDIT TASK
+          </span>
+          <span onClick={onClose} style={{ cursor: "pointer", color: C.muted, fontSize: 13 }}>✕</span>
+        </div>
+
+        {/* Title */}
+        <div>
+          <label style={fieldLabel}>TITLE</label>
+          <input
+            value={t.title}
+            onChange={(e) => set({ title: e.target.value })}
+            style={{ ...inputStyle, fontSize: 13 }}
+          />
+        </div>
+
+        {/* Priority + Status + Category — row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          <div>
+            <label style={fieldLabel}>PRIORITY</label>
+            <select
+              value={t.priority}
+              onChange={(e) => set({ priority: e.target.value as Task["priority"] })}
+              style={{ ...inputStyle, fontSize: 11 }}
+            >
+              <option value="high">HIGH</option>
+              <option value="medium">MEDIUM</option>
+              <option value="low">LOW</option>
+            </select>
+          </div>
+          <div>
+            <label style={fieldLabel}>STATUS</label>
+            <select
+              value={t.status}
+              onChange={(e) => set({ status: e.target.value as Task["status"] })}
+              style={{ ...inputStyle, fontSize: 11 }}
+            >
+              <option value="todo">TO DO</option>
+              <option value="in_progress">IN PROGRESS</option>
+              <option value="done">DONE</option>
+            </select>
+          </div>
+          <div>
+            <label style={fieldLabel}>CATEGORY</label>
+            <input
+              value={t.category ?? ""}
+              onChange={(e) => set({ category: e.target.value })}
+              style={{ ...inputStyle, fontSize: 11 }}
+            />
+          </div>
+        </div>
+
+        {/* Dates — row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div>
+            <label style={fieldLabel}>START DATE</label>
+            <input
+              type="date"
+              value={t.startDate ?? ""}
+              onChange={(e) => set({ startDate: e.target.value || null })}
+              style={{ ...inputStyle, fontSize: 11 }}
+            />
+          </div>
+          <div>
+            <label style={fieldLabel}>DUE DATE</label>
+            <input
+              type="date"
+              value={t.dueDate ?? ""}
+              onChange={(e) => set({ dueDate: e.target.value || null })}
+              style={{ ...inputStyle, fontSize: 11 }}
+            />
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label style={fieldLabel}>NOTES</label>
+          <textarea
+            value={t.notes ?? ""}
+            onChange={(e) => set({ notes: e.target.value })}
+            rows={3}
+            style={{ ...inputStyle, fontSize: 12, resize: "vertical", minHeight: 56 }}
+          />
+        </div>
+
+        {/* Links */}
+        <div>
+          <label style={fieldLabel}>LINKS</label>
+          {(t.links ?? []).map((link, i) => (
+            <div key={i} style={{ display: "flex", gap: 6, marginBottom: 4, alignItems: "center" }}>
+              <span style={{ flex: 1, fontSize: 11, fontFamily: "var(--font-mono)", color: C.muted,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {link}
+              </span>
+              <span onClick={() => set({ links: (t.links ?? []).filter((_, j) => j !== i) })}
+                style={{ cursor: "pointer", color: C.muted, fontSize: 10, flexShrink: 0 }}>✕</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 0, marginTop: 4 }}>
+            <input
+              value={newLink}
+              onChange={(e) => setNewLink(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addLink()}
+              placeholder="https://..."
+              style={{ ...inputStyle, fontSize: 11, borderRight: "none" }}
+            />
+            <button onClick={addLink} style={{ ...pixel(), borderLeft: "none", fontSize: 9, padding: "4px 10px" }}>
+              + ADD
+            </button>
+          </div>
+        </div>
+
+        {/* Subtasks */}
+        <div>
+          <label style={fieldLabel}>SUBTASKS</label>
+          {(t.subtasks ?? []).map((sub, i) => (
+            <div key={i} style={{ display: "flex", gap: 6, marginBottom: 4, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={sub.done}
+                onChange={() => toggleSubtask(i)}
+                style={{ accentColor: C.orange, cursor: "pointer" }}
+              />
+              <span style={{ flex: 1, fontSize: 11, fontFamily: "var(--font-mono)", color: sub.done ? C.muted : C.text,
+                textDecoration: sub.done ? "line-through" : "none" }}>
+                {sub.text}
+              </span>
+              <span onClick={() => removeSubtask(i)}
+                style={{ cursor: "pointer", color: C.muted, fontSize: 10, flexShrink: 0 }}>✕</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 0, marginTop: 4 }}>
+            <input
+              value={newSubtask}
+              onChange={(e) => setNewSubtask(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSubtask()}
+              placeholder="Add subtask…"
+              style={{ ...inputStyle, fontSize: 11, borderRight: "none" }}
+            />
+            <button onClick={addSubtask} style={{ ...pixel(), borderLeft: "none", fontSize: 9, padding: "4px 10px" }}>
+              + ADD
+            </button>
+          </div>
+        </div>
+
+        {/* AI Adjust */}
+        <div>
+          <label style={fieldLabel}>ASK AI TO ADJUST</label>
+          <div style={{ display: "flex", gap: 0 }}>
+            <input
+              value={adjustText}
+              onChange={(e) => setAdjustText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAdjust()}
+              placeholder={adjusting ? "Adjusting…" : "e.g. move due date to next Friday"}
+              disabled={adjusting}
+              style={{ ...inputStyle, fontSize: 11, borderRight: "none" }}
+            />
+            <button
+              onClick={handleAdjust}
+              disabled={adjusting || !adjustText.trim()}
+              style={{
+                ...pixel(true), borderLeft: "none", fontSize: 9, padding: "4px 10px",
+                background: adjusting ? C.panel : C.orange,
+                color: adjusting ? C.muted : "#fff",
+              }}
+            >
+              {adjusting ? "..." : "GO"}
+            </button>
+          </div>
+        </div>
+
+        {/* Save / Cancel */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+          <button onClick={onClose} style={{ ...pixel(), fontSize: 10 }}>
+            CANCEL
+          </button>
+          <button
+            onClick={async () => {
+              await onSave({ ...t, updatedAt: new Date().toISOString() });
+              onClose();
+            }}
+            style={{ ...pixel(true), fontSize: 10 }}
+          >
+            SAVE
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -161,11 +480,25 @@ export default function TaskDashboard() {
   const [catState, setCatState] = useState("idle");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<Task["status"] | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [ollamaStatus, setOllamaStatus] = useState<"running" | "offline" | "checking">("checking");
+  const [opacity, setOpacityState] = useState(1.0);
+  const [openAtLogin, setOpenAtLogin] = useState(false);
+  const [skipTaskbar, setSkipTaskbarState] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     window.toasty.listTasks().then((t) => { setTasks(t); setLoaded(true); });
-    const unsub = window.toasty.onCatState((s) => setCatState(s));
-    return () => unsub();
+    const unsubCat = window.toasty.onCatState((s) => setCatState(s));
+    const unsubOllama = window.toasty.onOllamaStatus((s) => setOllamaStatus(s));
+    window.toasty.getSettings().then((s) => {
+      setOpacityState(s.opacity ?? 1.0);
+      setOpenAtLogin(s.openAtLogin ?? false);
+      setSkipTaskbarState(s.skipTaskbar ?? false);
+    });
+    // Initial check — main process pushes after 2s but do an eager one too
+    window.toasty.checkOllama().then((s) => setOllamaStatus(s));
+    return () => { unsubCat(); unsubOllama(); };
   }, []);
 
   // ── Add / parse ──────────────────────────────
@@ -173,34 +506,44 @@ export default function TaskDashboard() {
     const text = input.trim();
     if (!text) return;
     setParsing(true); setError(null);
+    let aiOk = false;
     try {
       const parsed = await window.toasty.parse(text);
-      const now = new Date().toISOString();
-      const ids = nextIds(tasks, parsed.length);
-      const newTasks: Task[] = parsed.map((t: any, i: number) => ({
-        id: ids[i], title: t.title,
-        subtasks: (t.subtasks || []).map((s: any) =>
-          typeof s === "string" ? { text: s, done: false } : s),
-        priority: t.priority || "medium",
-        startDate: t.startDate || null, dueDate: t.dueDate || null,
-        category: t.category || "", status: "todo" as const,
-        createdAt: now, updatedAt: now, notes: t.notes || "", links: t.links || [],
-      }));
-      await Promise.all(newTasks.map((t) => window.toasty.saveTask(t)));
-      setTasks((prev) => [...newTasks, ...prev]);
-      setInput("");
-    } catch (e) {
-      // fallback: plain manual add if Ollama fails
+      if (parsed.length > 0) {
+        const now = new Date().toISOString();
+        const ids = nextIds(tasks, parsed.length);
+        const newTasks: Task[] = parsed.map((t: any, i: number) => ({
+          id: ids[i], title: t.title || text,
+          subtasks: [],
+          priority: t.priority || "medium",
+          startDate: null, dueDate: safeDate(t.dueDate),
+          category: t.category || "", status: "todo" as const,
+          createdAt: now, updatedAt: now,
+          // Preserve the full original input as notes for context
+          notes: text, links: [],
+        }));
+        await Promise.all(newTasks.map((t) => window.toasty.saveTask(t)));
+        setTasks((prev) => [...newTasks, ...prev]);
+        setInput("");
+        aiOk = true;
+      }
+    } catch {
+      // AI failed — fall through to manual add
+    }
+    if (!aiOk) {
+      // Plain manual add + visible feedback
       const now = new Date().toISOString();
       const id = nextId(tasks);
       const t: Task = {
         id, title: text, subtasks: [], priority: "medium",
         startDate: null, dueDate: null, category: "",
-        status: "todo", createdAt: now, updatedAt: now, notes: "", links: [],
+        status: "todo", createdAt: now, updatedAt: now, notes: text, links: [],
       };
       await window.toasty.saveTask(t);
       setTasks((prev) => [t, ...prev]);
       setInput("");
+      setError("AI parse failed — added as plain task");
+      setTimeout(() => setError(null), 4000);
     }
     setParsing(false);
   };
@@ -217,6 +560,24 @@ export default function TaskDashboard() {
   const clearDone = async () => {
     setTasks((prev) => prev.filter((t) => t.status !== "done"));
     await window.toasty.clearDone();
+  };
+
+  // ── Opacity ──────────────────────────────────
+  const handleOpacity = (v: number) => {
+    setOpacityState(v);
+    window.toasty.setOpacity(v);
+  };
+
+  // ── Auto-launch toggle ───────────────────────
+  const handleAutoLaunch = async (v: boolean) => {
+    setOpenAtLogin(v);
+    await window.toasty.setAutoLaunch(v);
+  };
+
+  // ── Skip taskbar toggle ──────────────────────
+  const handleSkipTaskbar = async (v: boolean) => {
+    setSkipTaskbarState(v);
+    await window.toasty.setSkipTaskbar(v);
   };
 
   // ── Drag & drop between columns ──────────────
@@ -242,29 +603,116 @@ export default function TaskDashboard() {
 
   return (
     <div style={{ minHeight: "100vh", background: C.cream, color: C.text, fontFamily: "var(--font-mono)" }}>
-      {/* ── Header ── */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10, padding: "10px 18px",
-        background: C.panel, borderBottom: `3px solid ${C.border}`,
-      }}>
-        <Cat state={catState} size={48} style={{ flexShrink: 0 }} />
-        <span style={{ fontFamily: "var(--font-pixel)", fontSize: 18, fontWeight: 700, color: C.text, letterSpacing: "0.06em" }}>
-          TOASTY
-        </span>
-        <span style={{ fontFamily: "var(--font-pixel)", fontSize: 9, color: C.muted, marginLeft: 4 }}>
-          {counts.todo} todo · {counts.in_progress} doing · {counts.done} done
-        </span>
-        <button
-          onClick={() => window.toasty.toggleMode()}
-          style={{ ...pixel(), marginLeft: "auto", fontSize: 9 }}
-        >
-          PET MODE
-        </button>
+
+      {/* ── Custom drag bar (replaces OS title bar) ── */}
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "6px 14px",
+          background: C.panel, borderBottom: `3px solid ${C.border}`,
+          WebkitAppRegion: "drag",
+        } as React.CSSProperties}
+      >
+        {/* Left: cat + title + counts + Ollama status — no-drag so cat is still clickable */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+          <Cat state={catState} size={40} style={{ flexShrink: 0 }} />
+          <span style={{ fontFamily: "var(--font-pixel)", fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: "0.06em" }}>
+            TOASTY
+          </span>
+          <span style={{ fontFamily: "var(--font-pixel)", fontSize: 9, color: C.muted, marginLeft: 2 }}>
+            {counts.todo} todo · {counts.in_progress} doing · {counts.done} done
+          </span>
+          {/* Ollama status indicator */}
+          <span
+            title={`Ollama: ${ollamaStatus}`}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 3,
+              fontFamily: "var(--font-pixel)", fontSize: 8,
+              color: ollamaStatus === "running" ? C.done : ollamaStatus === "offline" ? C.high : C.medium,
+              border: `1px solid ${ollamaStatus === "running" ? C.done : ollamaStatus === "offline" ? C.high : C.medium}`,
+              padding: "1px 5px", marginLeft: 4,
+            }}
+          >
+            <span style={{
+              width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+              background: ollamaStatus === "running" ? C.done : ollamaStatus === "offline" ? C.high : C.medium,
+            }} />
+            {ollamaStatus === "running" ? "AI ON" : ollamaStatus === "offline" ? "AI OFF" : "AI..."}
+          </span>
+        </div>
+
+        {/* Right: controls — no-drag */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+          {/* Opacity note: setOpacity dims our own UI too — this is a find-the-sweet-spot slider */}
+          <span style={{ fontFamily: "var(--font-pixel)", fontSize: 8, color: C.muted }}>OPACITY</span>
+          <input
+            type="range" min="0.2" max="1" step="0.05"
+            value={opacity}
+            onChange={(e) => handleOpacity(parseFloat(e.target.value))}
+            style={{ width: 64, cursor: "pointer", accentColor: C.orange }}
+          />
+          <button
+            onClick={() => window.toasty.toggleMode()}
+            style={{ ...pixel(), fontSize: 8 }}
+          >
+            PET
+          </button>
+          <button
+            onClick={() => setShowSettings((v) => !v)}
+            style={{ ...pixel(showSettings), fontSize: 8 }}
+          >
+            ⚙
+          </button>
+          <button
+            onClick={() => window.toasty.minimize()}
+            style={{ ...pixel(), fontSize: 9, padding: "4px 8px" }}
+            title="Minimize"
+          >
+            —
+          </button>
+          <button
+            onClick={() => window.toasty.closeWindow()}
+            style={{ ...pixel(), fontSize: 9, padding: "4px 8px", color: C.high }}
+            title="Hide to tray"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
-      <div style={{ padding: "16px 18px" }}>
+      {/* ── Settings panel (inline dropdown) ── */}
+      {showSettings && (
+        <div style={{
+          background: C.panel, borderBottom: `2px solid ${C.border}`,
+          padding: "8px 18px", display: "flex", gap: 16, alignItems: "center",
+          fontFamily: "var(--font-pixel)", fontSize: 9,
+        }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={openAtLogin}
+              onChange={(e) => handleAutoLaunch(e.target.checked)}
+              style={{ accentColor: C.orange }}
+            />
+            <span style={{ color: C.text }}>START ON LOGIN</span>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={skipTaskbar}
+              onChange={(e) => handleSkipTaskbar(e.target.checked)}
+              style={{ accentColor: C.orange }}
+            />
+            <span style={{ color: C.text }}>HIDE FROM TASKBAR</span>
+          </label>
+          <span style={{ color: C.muted }}>
+            (opacity slider dims Toasty too — find a sweet spot)
+          </span>
+        </div>
+      )}
+
+      <div style={{ padding: "14px 18px" }}>
         {/* ── Add bar ── */}
-        <div style={{ display: "flex", gap: 0, marginBottom: 18 }}>
+        <div style={{ display: "flex", gap: 0, marginBottom: 14 }}>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -287,7 +735,11 @@ export default function TaskDashboard() {
             {parsing ? "..." : "+ ADD"}
           </button>
         </div>
-        {error && <div style={{ fontSize: 11, color: C.high, marginBottom: 8, fontFamily: "var(--font-pixel)" }}>{error}</div>}
+        {error && (
+          <div style={{ fontSize: 10, color: C.medium, marginBottom: 8, fontFamily: "var(--font-pixel)" }}>
+            ⚠ {error}
+          </div>
+        )}
 
         {/* ── Kanban columns ── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "start" }}>
@@ -332,6 +784,7 @@ export default function TaskDashboard() {
                     <KanbanCard
                       task={task}
                       onDelete={() => deleteTask(task.id)}
+                      onClick={() => setEditingTask(task)}
                     />
                   </div>
                 ))}
@@ -362,6 +815,15 @@ export default function TaskDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── Edit Modal ── */}
+      {editingTask && (
+        <TaskModal
+          task={editingTask}
+          onSave={updateTask}
+          onClose={() => setEditingTask(null)}
+        />
+      )}
     </div>
   );
 }

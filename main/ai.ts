@@ -1,5 +1,8 @@
 const OLLAMA_BASE = process.env.OLLAMA_URL || "http://localhost:11434";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b";
+// Generous timeout: first parse after boot may hit a cold Ollama (daemon not loaded yet)
+const PARSE_TIMEOUT_MS = 30_000;
+const ADJUST_TIMEOUT_MS = 45_000;
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -16,40 +19,73 @@ function extractJSON(raw: string): string {
   return cleaned;
 }
 
-async function callOllama(systemPrompt: string, userMessage: string): Promise<string> {
-  const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      system: systemPrompt,
-      prompt: userMessage,
-      format: "json",
-      stream: false,
-      options: { temperature: 0.1 },
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Ollama error ${res.status}: ${text}`);
+async function callOllama(systemPrompt: string, userMessage: string, timeoutMs: number): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        system: systemPrompt,
+        prompt: userMessage,
+        format: "json",
+        stream: false,
+        options: { temperature: 0.1 },
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Ollama error ${res.status}: ${text}`);
+    }
+    const data = await res.json();
+    return extractJSON(data.response || "[]");
+  } finally {
+    clearTimeout(timer);
   }
-  const data = await res.json();
-  return extractJSON(data.response || "[]");
+}
+
+export async function checkOllama(): Promise<"running" | "offline"> {
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: controller.signal });
+    return res.ok ? "running" : "offline";
+  } catch {
+    return "offline";
+  }
 }
 
 export async function parseTasks(text: string): Promise<any[]> {
-  const system = `Extract tasks from text. Return ONLY a JSON array. No markdown.
-Each: {"title":"...","subtasks":["..."],"priority":"high|medium|low","startDate":"YYYY-MM-DD or null","dueDate":"YYYY-MM-DD or null","category":"...","notes":"...","links":["..."]}
-Infer priority from urgency. Extract/infer dates if mentioned. Today is ${todayStr()}. Extract any URLs/links mentioned. Put extra context in notes. Be concise. If no tasks, return [].`;
+  // Strip conversational prefixes so the model isn't confused by greetings
+  const cleaned = text.replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "").trim() || text;
 
-  const raw = await callOllama(system, text);
-  return JSON.parse(raw);
+  const system = `Extract tasks from the text. Return ONLY a JSON array, no markdown.
+Each item: {"title":"short task title","dueDate":"YYYY-MM-DD or null","priority":"high|medium|low","category":"topic word like work/personal/finance or null"}
+Rules: title must be concise (not the full input sentence). Category must be a topic type, NOT a day name or date. Ignore greetings. Today is ${todayStr()}. If no task found, return [].`;
+
+  const raw = await callOllama(system, cleaned, PARSE_TIMEOUT_MS);
+  const result = JSON.parse(raw);
+  // llama3.2:3b sometimes returns a single object instead of an array — normalise
+  const arr = Array.isArray(result) ? result : (result && result.title ? [result] : []);
+  // Guard: if the model echoed the full input as the title, it failed — treat as empty
+  return arr.filter((t: any) => t.title && t.title.trim().length < cleaned.length * 0.8);
+}
+
+function tomorrowStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
 }
 
 export async function adjustTask(taskJSON: string, instruction: string): Promise<any> {
   const system = `You are adjusting an existing task based on the user's instruction.
 Current task: ${taskJSON}
-Today is ${todayStr()}.
+Today is ${todayStr()}. Tomorrow is ${tomorrowStr()}.
+
+IMPORTANT: All dates MUST be in YYYY-MM-DD format. Never output relative words like "tomorrow" or "next week" — always convert to a real date.
 
 Return ONLY a JSON object (no markdown) with the adjusted task. Keep ALL original fields. You may:
 - Change title, priority, dates, category, status
@@ -61,6 +97,6 @@ Format if splitting: [{"title":"...", ...}, {"title":"...", ...}]
 
 Only change what the instruction asks for. Keep everything else intact.`;
 
-  const raw = await callOllama(system, instruction);
+  const raw = await callOllama(system, instruction, ADJUST_TIMEOUT_MS);
   return JSON.parse(raw);
 }

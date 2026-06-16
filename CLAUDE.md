@@ -16,27 +16,33 @@ reminds you of deadlines, chats via Ollama, and lets you capture thoughts by cli
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
-## Project Structure (Phase 2 — live)
+## Project Structure (Phase 3 — live)
 ```
 main/
   background.ts       # Electron app lifecycle + IPC handler registration + ambient state tick
   db.ts               # better-sqlite3 CRUD (listTasks, saveTask, deleteTask, clearDone)
-  ai.ts               # Ollama HTTP caller (format:"json", defensive fence-stripper)
-  settings.ts         # ToastySettings read/write (JSON in userData/settings.json)
-  windows.ts          # createMainWindow, createPetWindow, setupTray, toggleMode, pushCatState
+  ai.ts               # Ollama HTTP caller (format:"json", AbortController timeout, lean prompt)
+  settings.ts         # ToastySettings read/write (JSON in userData/settings.json); includes opacity, openAtLogin
+  windows.ts          # createMainWindow (frameless, alwaysOnTop, setOpacity), createPetWindow,
+                      # createCaptureWindow, setupTray (with auto-launch toggle), toggleMode,
+                      # pushCatState, minimizeMain, hideMain, setMainOpacity, applyAutoLaunch
   preload.ts          # contextBridge — exposes window.toasty.*
 renderer/
   pages/
     _document.tsx     # Global dark theme CSS (no Google Fonts — fully offline)
     _app.tsx          # Minimal Next.js App wrapper
-    index.tsx         # Dashboard with Cat header + Pet Mode button
-    pet.tsx           # Transparent pet-overlay page (WebkitAppRegion:drag, click→toggleMode)
+    index.tsx         # Dashboard (renders TaskDashboard)
+    pet.tsx           # Transparent pet-overlay; single-click→capture, double-click→dashboard
+    capture.tsx       # NEW: slim frameless quick-capture box — paste task, auto-close after add
   components/
-    TaskDashboard.tsx # Full UI — all state, IPC calls, rendering (Supabase/cloud removed)
+    TaskDashboard.tsx # Full UI: custom drag bar, opacity slider, settings panel (auto-launch),
+                      # kanban with click-to-edit cards, TaskModal (all fields + AI-adjust),
+                      # visible parse-fail indicator
     Cat.tsx           # Sprite animator; emoji fallback if PNG 404s; state→frames→fps
   types/
     task.ts           # Task, Subtask, ParsedTask, AdjustedTask interfaces
-    electron.d.ts     # window.toasty type declaration (includes onCatState, toggleMode, settings)
+    electron.d.ts     # window.toasty type declaration (minimize, closeWindow, setOpacity,
+                      # openCapture, closeCapture, setAutoLaunch)
   public/cat/
     PROMPTS.md        # nano-banana-pro sprite prompts (idle/thinking/alert/happy/sleep)
     idle/             # idle_01.png … idle_04.png (drop here)
@@ -47,16 +53,19 @@ renderer/
   next.config.js      # output:"export", images:{unoptimized:true}
   tsconfig.json       # Pages Router config (target:es5, moduleResolution:bundler)
 tsconfig.json         # Main process config (target:ES2020, module:commonjs, outDir:app/)
-package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-builder
+package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-builder;
+                      # asarUnpack: better-sqlite3 (native .node unpacked from asar)
 ```
 
 ## IPC Surface (`window.toasty`)
 `listTasks()` · `saveTask(task)` · `deleteTask(id)` · `clearDone()` ·
 `parse(text)` · `adjust(task, instruction)` ·
 `getSettings()` · `setSettings(patch)` · `toggleMode()` · `onCatState(cb)→unsub` ·
-_(Phase 3: `chat(messages)` · `onReminder(cb)`)_
+`minimize()` · `closeWindow()` · `setOpacity(v)` ·
+`openCapture()` · `closeCapture()` · `setAutoLaunch(enabled)` ·
+_(Phase 4: `chat(messages)` · `onReminder(cb)`)_
 
-## Key Design Decisions
+## Key Design Decisions (updated Phase 3)
 - **Per-mutation saves** — every state change immediately persists. No debounce/batch.
 - **No Next.js server in Electron production** — `output:"export"` in next.config.js. AI + DB calls go through IPC, not `fetch('/api/...')`.
 - **`dangerouslySetInnerHTML` in `_document.tsx`** — avoids Next.js hydration mismatch; do not revert to `<style>` tags.
@@ -68,6 +77,12 @@ _(Phase 3: `chat(messages)` · `onReminder(cb)`)_
 - **Cat state machine** — driven by `pushCatState(state)` from `main/windows.ts`. AI calls: thinking→idle. saveTask: happy→idle (2s). Ambient tick (60s): 22:00-06:00 or quietHours → sleep, else idle.
 - **Sprite drop pattern** — `renderer/public/cat/<state>/<state>_01.png … _04.png`. Cat.tsx detects first-frame 404 via `onError` and switches to emoji fallback; no app restart needed once PNGs are dropped.
 - **Pet window drag** — `WebkitAppRegion:"drag"` on outer div; `"no-drag"` on the cat sprite so click events reach the `<img>` onClick handler.
+- **Single vs double click on cat** — 250ms debounce timer: single-click → `openCapture()`; double-click clears the timer and calls `toggleMode()` (dashboard). Tradeoff: 250ms delay on the primary action. If sluggish, drop to single-click=capture + "Open dashboard" link inside the capture box.
+- **Frameless main window** — `frame:false` in `createMainWindow`. OS title bar removed; custom drag bar in the renderer uses `WebkitAppRegion:"drag"` with `"no-drag"` on every button/input.
+- **Clipboard accelerators** — do NOT use `Menu.setApplicationMenu(null)`. Set a menu with `{role:"editMenu"}` only; renders nothing visible in a frameless window but keeps Ctrl+C/V/X/A alive in inputs.
+- **`setOpacity` vs `transparent`** — main window uses `setOpacity(v)` (runtime slider), NOT `transparent:true`. `transparent:true` on win32 breaks hit-testing when combined with always-on-top. Side effect: `setOpacity` dims Toasty's own text too — user finds their sweet spot with the slider.
+- **better-sqlite3 asarUnpack** — `asarUnpack: ["**/node_modules/better-sqlite3/**"]` in `package.json` build config. The native `.node` binary must be outside the asar archive or the packaged app cannot load it.
+- **Capture window auto-close on blur** — the capture window closes when it loses focus (`blur` event in `createCaptureWindow`). This mirrors the quick-capture UX expectation (click elsewhere to dismiss).
 - **`electron-serve` lives in `windows.ts`** — not in `background.ts`. `background.ts` only handles IPC registration and lifecycle.
 
 ## Cat States → Sprite Files
@@ -88,7 +103,8 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 ## Phases
 - **Phase 1** ✓ — Nextron shell + SQLite (dashboard works fully local, no Supabase)
 - **Phase 2** ✓ — Pixel cat + pet-overlay / normal-window toggle
-- **Phase 3** — Chat + reminders + click-to-capture
+- **Phase 3** ✓ — Frameless+transparent window · edit modal (all fields + AI-adjust) · quick-capture · lean parse prompt · packaged .exe + launch-on-startup
+- **Phase 4** — Chat + reminders
 
 ## Dev Commands
 ```bash

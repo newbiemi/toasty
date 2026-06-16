@@ -1,14 +1,17 @@
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Cat from "../components/Cat";
 
 export default function PetPage() {
   const [catState, setCatState] = useState("idle");
   const [minimized, setMinimized] = useState(false);
   const [hovered, setHovered] = useState(false);
+  // Click/dblclick disambiguation — single = capture, double = dashboard
+  // Tradeoff: 250ms delay on every single-click (primary action).
+  // If this feels sluggish, fall back to: single-click=capture + "Open dashboard" link inside capture.
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Restore persisted minimized state
     window.toasty.getSettings().then((s) => setMinimized(s.petMinimized));
     const unsub = window.toasty.onCatState((s) => setCatState(s));
     return () => unsub();
@@ -19,6 +22,21 @@ export default function PetPage() {
     const next = !minimized;
     setMinimized(next);
     window.toasty.setPetSize(next ? "dot" : "full");
+  };
+
+  const handleCatClick = () => {
+    if (clickTimer.current) {
+      // second click within 250ms → dblclick → open dashboard
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+      window.toasty.toggleMode();
+    } else {
+      clickTimer.current = setTimeout(() => {
+        clickTimer.current = null;
+        // single click → open quick-capture
+        window.toasty.openCapture();
+      }, 250);
+    }
   };
 
   return (
@@ -89,7 +107,7 @@ export default function PetPage() {
             <Cat
               state={catState}
               size={72}
-              onClick={() => window.toasty.toggleMode()}
+              onClick={handleCatClick}
             />
           </div>
         </div>

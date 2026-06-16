@@ -29,10 +29,12 @@
     "appId": "com.fahmi.toasty",
     "productName": "Toasty",
     "files": [
-      "app/**/*",
-      "renderer/out/**/*"
+      "app/**/*"
     ],
     "extraResources": [],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
     "win": {
       "target": "nsis"
     }

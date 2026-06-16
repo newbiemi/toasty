@@ -11,6 +11,9 @@ export interface ToastySettings {
   quietFrom: number;
   quietTo: number;
   model: string;
+  opacity: number;        // 0.3–1.0, default 1.0
+  openAtLogin: boolean;   // launch on OS startup
+  skipTaskbar: boolean;   // hide from Windows taskbar
 }
 
 const DEFAULTS: ToastySettings = {
@@ -22,6 +25,9 @@ const DEFAULTS: ToastySettings = {
   quietFrom: 22,
   quietTo: 6,
   model: "llama3.2:3b",
+  opacity: 1.0,
+  openAtLogin: false,
+  skipTaskbar: false,
 };
 
 let _cache: ToastySettings | null = null;

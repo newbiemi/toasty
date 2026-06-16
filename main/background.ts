@@ -1,10 +1,13 @@
 import { app, ipcMain } from "electron";
 import { listTasks, saveTask, deleteTask, clearDone } from "./db";
-import { parseTasks, adjustTask } from "./ai";
+import { parseTasks, adjustTask, checkOllama } from "./ai";
 import { getSettings, setSettings } from "./settings";
 import {
   createMainWindow, createPetWindow, setupTray,
   toggleMode, pushCatState, setPetSize,
+  minimizeMain, hideMain, setMainOpacity,
+  openCaptureWindow, closeCaptureWindow,
+  applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
 } from "./windows";
 
 // ─── IPC: DB ──────────────────────────────────
@@ -36,6 +39,28 @@ ipcMain.handle("settings:set", (_e, patch) => setSettings(patch));
 ipcMain.handle("window:toggleMode", () => toggleMode());
 ipcMain.handle("pet:setSize", (_e, size: "dot" | "full") => setPetSize(size));
 
+// ─── IPC: Window controls (custom drag bar) ───
+ipcMain.handle("window:minimize", () => minimizeMain());
+ipcMain.handle("window:close", () => hideMain());
+ipcMain.handle("window:setOpacity", (_e, value: number) => setMainOpacity(value));
+
+// ─── IPC: Capture window ──────────────────────
+ipcMain.handle("window:openCapture", () => openCaptureWindow());
+ipcMain.handle("window:closeCapture", () => closeCaptureWindow());
+
+// ─── IPC: Auto-launch ─────────────────────────
+ipcMain.handle("window:setAutoLaunch", (_e, enabled: boolean) => {
+  setSettings({ openAtLogin: enabled });
+  app.setLoginItemSettings({ openAtLogin: enabled, name: "Toasty" });
+  return enabled;
+});
+
+// ─── IPC: Skip taskbar ────────────────────────
+ipcMain.handle("window:setSkipTaskbar", (_e, value: boolean) => setSkipTaskbar(value));
+
+// ─── IPC: Ollama status ───────────────────────
+ipcMain.handle("ollama:check", async () => checkOllama());
+
 // ─── Ambient state tick ───────────────────────
 function isInQuietHours(h: number, from: number, to: number): boolean {
   if (from <= to) return h >= from && h < to;
@@ -51,10 +76,16 @@ function tickAmbient() {
   pushCatState(sleeping ? "sleep" : "idle");
 }
 
+async function tickOllama() {
+  const status = await checkOllama();
+  pushOllamaStatus(status);
+}
+
 // ─── App Lifecycle ────────────────────────────
 app.on("ready", async () => {
   setupTray();
   const s = getSettings();
+  applyAutoLaunch();
   if (s.mode === "pet") {
     await createPetWindow();
   } else {
@@ -62,6 +93,9 @@ app.on("ready", async () => {
   }
   tickAmbient();
   setInterval(tickAmbient, 60_000);
+  // Initial Ollama check after window loads, then every 30s
+  setTimeout(tickOllama, 2000);
+  setInterval(tickOllama, 30_000);
 });
 
 // Tray app — never quit on window-all-closed; only quit via tray menu

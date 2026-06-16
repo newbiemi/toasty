@@ -10,20 +10,39 @@ const DEV_URL = "http://localhost:8888";
 
 export let mainWin: BrowserWindow | null = null;
 export let petWin: BrowserWindow | null = null;
+export let captureWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 function webPrefs() {
   return { preload: PRELOAD, contextIsolation: true, nodeIntegration: false };
 }
 
+// ── Keep only edit-role menu so Ctrl+C/V/X/A accelerators stay alive
+// (Menu.setApplicationMenu(null) kills clipboard shortcuts in frameless inputs)
+function setupAppMenu() {
+  const menu = Menu.buildFromTemplate([{ role: "editMenu" }]);
+  Menu.setApplicationMenu(menu);
+}
+
 export async function createMainWindow(): Promise<BrowserWindow> {
-  mainWin = new BrowserWindow({ width: 1280, height: 800, webPreferences: webPrefs() });
+  const s = getSettings();
+  mainWin = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    frame: false,          // custom drag bar in the renderer
+    transparent: false,    // use setOpacity instead (true breaks win32 hit-testing)
+    alwaysOnTop: true,
+    skipTaskbar: s.skipTaskbar ?? false,
+    webPreferences: webPrefs(),
+  });
+  mainWin.setOpacity(s.opacity ?? 1.0);
   mainWin.on("closed", () => { mainWin = null; });
   if (isProd) {
     await (loadURL as any)(mainWin);
   } else {
     mainWin.loadURL(`${DEV_URL}/`);
   }
+  setupAppMenu();
   return mainWin;
 }
 
@@ -54,6 +73,45 @@ export async function createPetWindow(): Promise<BrowserWindow> {
   return petWin;
 }
 
+// ── Quick-capture window — small frameless always-on-top box near the cat ──
+export async function openCaptureWindow(): Promise<void> {
+  if (captureWin && !captureWin.isDestroyed()) {
+    captureWin.focus();
+    return;
+  }
+  const s = getSettings();
+  // Position capture box just to the right of the cat, or near centre-screen
+  const catX = s.catX ?? 50;
+  const catY = s.catY ?? 50;
+  captureWin = new BrowserWindow({
+    x: catX + PET_FULL + 8,
+    y: catY,
+    width: 380,
+    height: 52,
+    frame: false,
+    transparent: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    webPreferences: webPrefs(),
+  });
+  captureWin.setOpacity(s.opacity ?? 1.0);
+  captureWin.on("closed", () => { captureWin = null; });
+  captureWin.on("blur", () => {
+    // Auto-close when user clicks away (unless focused for paste)
+    if (captureWin && !captureWin.isDestroyed()) captureWin.close();
+  });
+  if (isProd) {
+    captureWin.loadURL("app://./capture.html");
+  } else {
+    captureWin.loadURL(`${DEV_URL}/capture`);
+  }
+}
+
+export function closeCaptureWindow(): void {
+  if (captureWin && !captureWin.isDestroyed()) captureWin.close();
+}
+
 export function setupTray() {
   const size = 16;
   const buf = Buffer.alloc(size * size * 4);
@@ -71,8 +129,26 @@ function updateTrayMenu() {
   const s = getSettings();
   tray.setContextMenu(Menu.buildFromTemplate([
     {
+      label: s.mode === "window" ? "Open Toasty" : "Switch to Window Mode",
+      click: () => {
+        if (s.mode !== "window") toggleMode();
+        else if (mainWin) { mainWin.show(); mainWin.focus(); }
+        else createMainWindow();
+      },
+    },
+    {
       label: s.mode === "window" ? "Switch to Pet Mode" : "Switch to Window Mode",
       click: () => toggleMode(),
+    },
+    { type: "separator" },
+    {
+      label: s.openAtLogin ? "✓ Start on Login" : "Start on Login",
+      click: () => {
+        const next = !s.openAtLogin;
+        setSettings({ openAtLogin: next });
+        app.setLoginItemSettings({ openAtLogin: next, name: "Toasty" });
+        updateTrayMenu();
+      },
     },
     { type: "separator" },
     { label: "Quit Toasty", click: () => app.quit() },
@@ -98,6 +174,10 @@ export function pushCatState(state: string) {
   if (win && !win.isDestroyed()) win.webContents.send("cat:state", state);
 }
 
+export function pushOllamaStatus(status: "running" | "offline") {
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send("ollama:status", status);
+}
+
 export function setPetSize(size: "dot" | "full") {
   const minimized = size === "dot";
   setSettings({ petMinimized: minimized });
@@ -106,4 +186,31 @@ export function setPetSize(size: "dot" | "full") {
   const [x, y] = petWin.getPosition();
   petWin.setSize(dim, dim);
   petWin.setPosition(x, y);
+}
+
+// ── Window controls (called via IPC from the custom drag bar) ──
+export function minimizeMain() {
+  if (mainWin && !mainWin.isDestroyed()) mainWin.minimize();
+}
+
+export function hideMain() {
+  // "Close" hides to tray (consistent with tray-app lifecycle)
+  if (mainWin && !mainWin.isDestroyed()) mainWin.hide();
+}
+
+export function setMainOpacity(value: number) {
+  const clamped = Math.min(1, Math.max(0.2, value));
+  setSettings({ opacity: clamped });
+  if (mainWin && !mainWin.isDestroyed()) mainWin.setOpacity(clamped);
+  if (captureWin && !captureWin.isDestroyed()) captureWin.setOpacity(clamped);
+}
+
+export function applyAutoLaunch() {
+  const s = getSettings();
+  app.setLoginItemSettings({ openAtLogin: s.openAtLogin, name: "Toasty" });
+}
+
+export function setSkipTaskbar(value: boolean) {
+  setSettings({ skipTaskbar: value });
+  if (mainWin && !mainWin.isDestroyed()) mainWin.setSkipTaskbar(value);
 }
