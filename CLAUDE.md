@@ -8,54 +8,37 @@ reminds you of deadlines, chats via Ollama, and lets you capture thoughts by cli
 > Transformed from the original `task-parser` Next.js web app (Supabase + cloud AI)
 > into an Electron desktop app with SQLite storage and a local LLM (Ollama).
 
-## Stack (target — Electron phase)
+## Stack (Phase 1 — complete ✓)
 - **Shell**: Electron (via Nextron) — main process owns all native concerns
-- **Renderer**: Next.js 14 (App Router), React 18, TypeScript — inline-style approach kept
-- **Storage**: `better-sqlite3` in Electron main process (`%APPDATA%/Toasty/toasty.db`)
+- **Renderer**: Next.js 14 (Pages Router), React 18, TypeScript — inline-style approach kept
+- **Storage**: `better-sqlite3` in Electron main process (`%APPDATA%/Roaming/toasty/toasty.db`)
 - **AI**: Ollama HTTP (`localhost:11434`), default model `llama3.2:3b`
-- **Font**: JetBrains Mono, dark theme (`#0e0e10` body, `#53f078` accent)
+- **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
-## Stack (current — pre-Electron web app)
-- **Framework**: Next.js 14.2, React 18, TypeScript
-- **AI**: Groq (llama-3.1-8b-instant) / Gemini 2.5 Flash / Claude — switched via `AI_PROVIDER`
-- **DB**: Supabase (Postgres) via `@supabase/supabase-js` (TO BE REPLACED with SQLite)
-- **Font**: JetBrains Mono
-
-## Project Structure (current)
-```
-app/
-  layout.tsx          # Global styles via dangerouslySetInnerHTML (fixes Next.js hydration bug)
-  page.tsx            # Renders <TaskDashboard />
-  api/
-    parse/route.ts    # POST /api/parse  → parseTasks() from lib/ai.ts  [PHASE 1: remove]
-    adjust/route.ts   # POST /api/adjust → adjustTask() from lib/ai.ts  [PHASE 1: remove]
-components/
-  TaskDashboard.tsx   # Full UI — all state, DB calls, and rendering live here
-lib/
-  ai.ts               # AI provider abstraction — prompts/JSON-extraction reused in main/ai.ts
-  supabase.ts         # Supabase client init  [PHASE 1: delete]
-  tasks.ts            # Unused scaffold        [PHASE 1: delete]
-types/
-  task.ts             # Task, Subtask, ParsedTask, AdjustedTask interfaces (camelCase, keep)
-supabase/
-  schema.sql          # Reference schema       [PHASE 1: delete after migration]
-```
-
-## Target Structure (post-Electron scaffold)
+## Project Structure (Phase 1 — live)
 ```
 main/
   background.ts       # Electron app lifecycle + IPC handler registration
-  db.ts               # better-sqlite3 CRUD (listTasks, saveTask, deleteTask, clearDone, nextId)
-  ai.ts               # Ollama HTTP caller — reuses prompt strings from current lib/ai.ts
-  reminders.ts        # setInterval due/overdue scan → IPC push to renderer
-  windows.ts          # pet-overlay + main window, toggle, tray
-preload/
-  index.ts            # contextBridge — exposes window.toasty.*
-renderer/             # Next.js UI (moved here under Nextron)
-  app/, components/, lib/, types/, public/
-  public/cat/         # Sprite drop folder (idle/thinking/alert/happy/sleep)
-    PROMPTS.md        # nano-banana-pro prompts for each state
+  db.ts               # better-sqlite3 CRUD (listTasks, saveTask, deleteTask, clearDone)
+  ai.ts               # Ollama HTTP caller (format:"json", defensive fence-stripper)
+  preload.ts          # contextBridge — exposes window.toasty.*
+renderer/
+  pages/
+    _document.tsx     # Global dark theme CSS (no Google Fonts — fully offline)
+    _app.tsx          # Minimal Next.js App wrapper
+    index.tsx         # Renders <TaskDashboard />
+  components/
+    TaskDashboard.tsx # Full UI — all state, IPC calls, rendering (Supabase/cloud removed)
+  types/
+    task.ts           # Task, Subtask, ParsedTask, AdjustedTask interfaces
+    electron.d.ts     # window.toasty type declaration
+  public/cat/
+    PROMPTS.md        # nano-banana-pro sprite prompts (idle/thinking/alert/happy/sleep)
+  next.config.js      # output:"export", images:{unoptimized:true}
+  tsconfig.json       # Pages Router config (target:es5, moduleResolution:bundler)
+tsconfig.json         # Main process config (target:ES2020, module:commonjs, outDir:app/)
+package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-builder
 ```
 
 ## IPC Surface (`window.toasty`)
@@ -64,14 +47,13 @@ renderer/             # Next.js UI (moved here under Nextron)
 `setMode('pet'|'window')` · `onReminder(cb)` · `getSettings()` · `setSettings()`
 
 ## Key Design Decisions
-- **DB calls funneled through 5 module-level functions** in `TaskDashboard.tsx` (lines 27-38, 128-160)
-  — Phase 1 swaps only these to `window.toasty.*` IPC. Render tree unchanged.
 - **Per-mutation saves** — every state change immediately persists. No debounce/batch.
-- **No Next.js server in Electron production** — `app/api/` route handlers don't run; AI calls
-  go through IPC, not `fetch('/api/...')`.
-- **`dangerouslySetInnerHTML` in layout** — required for hydration bug; do not revert.
-- **`better-sqlite3` needs ABI rebuild** — use `electron-rebuild` after `npm install`.
-  This is the #1 Nextron + native module pitfall.
+- **No Next.js server in Electron production** — `output:"export"` in next.config.js. AI + DB calls go through IPC, not `fetch('/api/...')`.
+- **`dangerouslySetInnerHTML` in `_document.tsx`** — avoids Next.js hydration mismatch; do not revert to `<style>` tags.
+- **`better-sqlite3` needs ABI rebuild** — install with `npm install --ignore-scripts`, then `npm run rebuild` (`electron-builder install-app-deps`). This downloads the prebuilt binary for Electron's Node ABI. The `postinstall` script was renamed to `rebuild` to prevent system Node collision.
+- **`getDB()` deferred path** — `app.getPath("userData")` is called inside `getDB()`, not at module top-level, to avoid running before `app:ready`.
+- **`nextId`/`nextIds` are sync** — computed from in-memory task array; no DB round-trip needed.
+- **Ollama `format:"json"`** — primary guard for structured parse output. Defensive fence-strip + JSON-slice as backstop in `main/ai.ts:extractJSON()`.
 
 ## Cat States → Sprite Files
 | State | Trigger | Subfolder |
@@ -89,17 +71,18 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 `sortOrder INTEGER`, `createdAt TEXT`, `updatedAt TEXT`.
 
 ## Phases
-- **Phase 1** — Nextron shell + SQLite (dashboard works fully local, no Supabase)
+- **Phase 1** ✓ — Nextron shell + SQLite (dashboard works fully local, no Supabase)
 - **Phase 2** — Pixel cat + pet-overlay / normal-window toggle
 - **Phase 3** — Chat + reminders + click-to-capture
 
-## Dev Notes
-- Old PM2 setup (port 3001) is obsolete once Electron shell is added.
-- `lib/tasks.ts` is an unused scaffold — delete in Phase 1.
-- Ollama parse quality risk: use `format: "json"` in Ollama calls + keep the defensive
-  JSON fence-stripper from `lib/ai.ts:callAI` as backstop. Verify early with 5 test inputs.
+## Dev Commands
+```bash
+npm run dev      # nextron — starts Next.js on :8888 + Electron window
+npm run build    # nextron build — static export + electron-builder
+npm run rebuild  # electron-builder install-app-deps — rebuild native modules for Electron ABI
+```
 
-## Known Issues / History (pre-Electron)
-- **Groq/Gemini quota**: creating a new key in the same Google project does NOT reset quota.
-- **Hydration error**: fixed in `layout.tsx` — do not revert `<style>` to plain template literal.
-- **Multiple dev instances**: `Get-Process node | Stop-Process` to wipe all Node processes.
+## Known Issues / Notes
+- **Multiple dev instances**: `Get-Process node,electron | Stop-Process` to clear all processes
+- **Port 8888**: Nextron's default renderer dev port; `background.ts` hardcodes `localhost:8888` for dev
+- **Ollama parse quality**: verify early with 5+ varied inputs; `format:"json"` is the main guard

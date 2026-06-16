@@ -3,21 +3,38 @@
   "version": "0.1.0",
   "description": "Local pixel-cat task companion — fully offline, Electron + Ollama",
   "private": true,
+  "main": "app/background.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "dev": "nextron",
+    "build": "nextron build",
+    "rebuild": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "electron-serve": "^1.3.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "xlsx": "^0.18.5"
+    "react-dom": "^18.3.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3",
+    "nextron": "^8.13.0",
     "typescript": "^5.5.0"
+  },
+  "build": {
+    "appId": "com.fahmi.toasty",
+    "productName": "Toasty",
+    "files": [
+      "app/**/*",
+      "renderer/out/**/*"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": "nsis"
+    }
   }
 }
