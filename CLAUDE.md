@@ -16,25 +16,34 @@ reminds you of deadlines, chats via Ollama, and lets you capture thoughts by cli
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
-## Project Structure (Phase 1 — live)
+## Project Structure (Phase 2 — live)
 ```
 main/
-  background.ts       # Electron app lifecycle + IPC handler registration
+  background.ts       # Electron app lifecycle + IPC handler registration + ambient state tick
   db.ts               # better-sqlite3 CRUD (listTasks, saveTask, deleteTask, clearDone)
   ai.ts               # Ollama HTTP caller (format:"json", defensive fence-stripper)
+  settings.ts         # ToastySettings read/write (JSON in userData/settings.json)
+  windows.ts          # createMainWindow, createPetWindow, setupTray, toggleMode, pushCatState
   preload.ts          # contextBridge — exposes window.toasty.*
 renderer/
   pages/
     _document.tsx     # Global dark theme CSS (no Google Fonts — fully offline)
     _app.tsx          # Minimal Next.js App wrapper
-    index.tsx         # Renders <TaskDashboard />
+    index.tsx         # Dashboard with Cat header + Pet Mode button
+    pet.tsx           # Transparent pet-overlay page (WebkitAppRegion:drag, click→toggleMode)
   components/
     TaskDashboard.tsx # Full UI — all state, IPC calls, rendering (Supabase/cloud removed)
+    Cat.tsx           # Sprite animator; emoji fallback if PNG 404s; state→frames→fps
   types/
     task.ts           # Task, Subtask, ParsedTask, AdjustedTask interfaces
-    electron.d.ts     # window.toasty type declaration
+    electron.d.ts     # window.toasty type declaration (includes onCatState, toggleMode, settings)
   public/cat/
     PROMPTS.md        # nano-banana-pro sprite prompts (idle/thinking/alert/happy/sleep)
+    idle/             # idle_01.png … idle_04.png (drop here)
+    thinking/         # thinking_01.png … thinking_04.png
+    alert/            # alert_01.png … alert_04.png
+    happy/            # happy_01.png … happy_04.png
+    sleep/            # sleep_01.png … sleep_04.png
   next.config.js      # output:"export", images:{unoptimized:true}
   tsconfig.json       # Pages Router config (target:es5, moduleResolution:bundler)
 tsconfig.json         # Main process config (target:ES2020, module:commonjs, outDir:app/)
@@ -43,8 +52,9 @@ package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-bui
 
 ## IPC Surface (`window.toasty`)
 `listTasks()` · `saveTask(task)` · `deleteTask(id)` · `clearDone()` ·
-`parse(text)` · `chat(messages)` · `adjust(task, instruction)` ·
-`setMode('pet'|'window')` · `onReminder(cb)` · `getSettings()` · `setSettings()`
+`parse(text)` · `adjust(task, instruction)` ·
+`getSettings()` · `setSettings(patch)` · `toggleMode()` · `onCatState(cb)→unsub` ·
+_(Phase 3: `chat(messages)` · `onReminder(cb)`)_
 
 ## Key Design Decisions
 - **Per-mutation saves** — every state change immediately persists. No debounce/batch.
@@ -54,6 +64,11 @@ package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-bui
 - **`getDB()` deferred path** — `app.getPath("userData")` is called inside `getDB()`, not at module top-level, to avoid running before `app:ready`.
 - **`nextId`/`nextIds` are sync** — computed from in-memory task array; no DB round-trip needed.
 - **Ollama `format:"json"`** — primary guard for structured parse output. Defensive fence-strip + JSON-slice as backstop in `main/ai.ts:extractJSON()`.
+- **Tray-app lifecycle** — `window-all-closed` is a no-op; app only quits via tray context menu "Quit Toasty".
+- **Cat state machine** — driven by `pushCatState(state)` from `main/windows.ts`. AI calls: thinking→idle. saveTask: happy→idle (2s). Ambient tick (60s): 22:00-06:00 or quietHours → sleep, else idle.
+- **Sprite drop pattern** — `renderer/public/cat/<state>/<state>_01.png … _04.png`. Cat.tsx detects first-frame 404 via `onError` and switches to emoji fallback; no app restart needed once PNGs are dropped.
+- **Pet window drag** — `WebkitAppRegion:"drag"` on outer div; `"no-drag"` on the cat sprite so click events reach the `<img>` onClick handler.
+- **`electron-serve` lives in `windows.ts`** — not in `background.ts`. `background.ts` only handles IPC registration and lifecycle.
 
 ## Cat States → Sprite Files
 | State | Trigger | Subfolder |
@@ -72,7 +87,7 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 
 ## Phases
 - **Phase 1** ✓ — Nextron shell + SQLite (dashboard works fully local, no Supabase)
-- **Phase 2** — Pixel cat + pet-overlay / normal-window toggle
+- **Phase 2** ✓ — Pixel cat + pet-overlay / normal-window toggle
 - **Phase 3** — Chat + reminders + click-to-capture
 
 ## Dev Commands

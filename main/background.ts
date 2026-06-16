@@ -1,49 +1,68 @@
-import { app, BrowserWindow, ipcMain } from "electron";
-import * as path from "path";
-import serve from "electron-serve";
+import { app, ipcMain } from "electron";
 import { listTasks, saveTask, deleteTask, clearDone } from "./db";
 import { parseTasks, adjustTask } from "./ai";
+import { getSettings, setSettings } from "./settings";
+import {
+  createMainWindow, createPetWindow, setupTray,
+  toggleMode, pushCatState, setPetSize,
+} from "./windows";
 
-const isProd = process.env.NODE_ENV === "production";
-
-const loadURL = isProd
-  ? serve({ directory: "app" })
-  : null;
-
-let mainWindow: BrowserWindow;
-
-async function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  if (isProd) {
-    await (loadURL as any)(mainWindow);
-  } else {
-    mainWindow.loadURL("http://localhost:8888/");
-    mainWindow.webContents.openDevTools();
-  }
-}
-
-// ─── IPC Handlers ─────────────────────────────
+// ─── IPC: DB ──────────────────────────────────
 ipcMain.handle("db:list", () => listTasks());
-ipcMain.handle("db:save", (_e, task) => saveTask(task));
+ipcMain.handle("db:save", async (_e, task) => {
+  const result = await saveTask(task);
+  pushCatState("happy");
+  setTimeout(() => pushCatState("idle"), 2000);
+  return result;
+});
 ipcMain.handle("db:delete", (_e, id) => deleteTask(id));
 ipcMain.handle("db:clearDone", () => clearDone());
-ipcMain.handle("ai:parse", (_e, text) => parseTasks(text));
-ipcMain.handle("ai:adjust", (_e, taskJSON, instruction) => adjustTask(taskJSON, instruction));
+
+// ─── IPC: AI ──────────────────────────────────
+ipcMain.handle("ai:parse", async (_e, text) => {
+  pushCatState("thinking");
+  try { return await parseTasks(text); }
+  finally { pushCatState("idle"); }
+});
+ipcMain.handle("ai:adjust", async (_e, taskJSON, instruction) => {
+  pushCatState("thinking");
+  try { return await adjustTask(taskJSON, instruction); }
+  finally { pushCatState("idle"); }
+});
+
+// ─── IPC: Settings + Mode ─────────────────────
+ipcMain.handle("settings:get", () => getSettings());
+ipcMain.handle("settings:set", (_e, patch) => setSettings(patch));
+ipcMain.handle("window:toggleMode", () => toggleMode());
+ipcMain.handle("pet:setSize", (_e, size: "dot" | "full") => setPetSize(size));
+
+// ─── Ambient state tick ───────────────────────
+function isInQuietHours(h: number, from: number, to: number): boolean {
+  if (from <= to) return h >= from && h < to;
+  return h >= from || h < to;
+}
+
+function tickAmbient() {
+  const h = new Date().getHours();
+  const s = getSettings();
+  const sleeping =
+    (s.quietHoursEnabled && isInQuietHours(h, s.quietFrom, s.quietTo)) ||
+    h >= 22 || h < 6;
+  pushCatState(sleeping ? "sleep" : "idle");
+}
 
 // ─── App Lifecycle ────────────────────────────
-app.on("ready", createWindow);
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+app.on("ready", async () => {
+  setupTray();
+  const s = getSettings();
+  if (s.mode === "pet") {
+    await createPetWindow();
+  } else {
+    await createMainWindow();
+  }
+  tickAmbient();
+  setInterval(tickAmbient, 60_000);
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+
+// Tray app — never quit on window-all-closed; only quit via tray menu
+app.on("window-all-closed", () => { /* intentionally empty */ });
