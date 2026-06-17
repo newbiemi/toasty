@@ -11,6 +11,7 @@ export interface Task {
   status: "todo" | "in_progress" | "done";
   startDate: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   category: string;
   notes: string;
   links: string[];

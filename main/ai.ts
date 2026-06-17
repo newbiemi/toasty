@@ -92,7 +92,7 @@ Return ONLY a JSON object (no markdown) with the adjusted task. Keep ALL origina
 - Add/remove/modify subtasks
 - Split into multiple tasks if needed (return a JSON array instead)
 
-Format for single task: {"title":"...","subtasks":["..."],"priority":"high|medium|low","startDate":"YYYY-MM-DD or null","dueDate":"YYYY-MM-DD or null","category":"...","status":"todo|in_progress|done","notes":"...","links":["..."]}
+Format for single task: {"title":"...","subtasks":[{"text":"step title","done":false}],"priority":"high|medium|low","startDate":"YYYY-MM-DD or null","dueDate":"YYYY-MM-DD or null","dueTime":"HH:MM or null","category":"...","status":"todo|in_progress|done","notes":"...","links":["..."]}
 Format if splitting: [{"title":"...", ...}, {"title":"...", ...}]
 
 Only change what the instruction asks for. Keep everything else intact.`;

@@ -8,6 +8,7 @@ import {
   minimizeMain, hideMain, setMainOpacity,
   openCaptureWindow, closeCaptureWindow,
   applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
+  movePetWindow, pushReminder,
 } from "./windows";
 
 // ─── IPC: DB ──────────────────────────────────
@@ -58,6 +59,9 @@ ipcMain.handle("window:setAutoLaunch", (_e, enabled: boolean) => {
 // ─── IPC: Skip taskbar ────────────────────────
 ipcMain.handle("window:setSkipTaskbar", (_e, value: boolean) => setSkipTaskbar(value));
 
+// ─── IPC: Pet drag ───────────────────────────
+ipcMain.handle("window:movePet", (_e, x: number, y: number) => movePetWindow(x, y));
+
 // ─── IPC: Ollama status ───────────────────────
 ipcMain.handle("ollama:check", async () => checkOllama());
 
@@ -81,6 +85,24 @@ async function tickOllama() {
   pushOllamaStatus(status);
 }
 
+function tickReminder() {
+  const now = new Date();
+  const todayDate = now.toISOString().split("T")[0];
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const currentTime = `${hh}:${mm}`;
+  const due = listTasks().filter((t: any) =>
+    t.status !== "done" &&
+    t.dueDate === todayDate &&
+    t.dueTime === currentTime
+  );
+  if (due.length > 0) {
+    pushCatState("alert");
+    pushReminder(due);
+    setTimeout(() => pushCatState("idle"), 5 * 60_000);
+  }
+}
+
 // ─── App Lifecycle ────────────────────────────
 app.on("ready", async () => {
   setupTray();
@@ -96,6 +118,8 @@ app.on("ready", async () => {
   // Initial Ollama check after window loads, then every 30s
   setTimeout(tickOllama, 2000);
   setInterval(tickOllama, 30_000);
+  // Reminder tick every minute
+  setInterval(tickReminder, 60_000);
 });
 
 // Tray app — never quit on window-all-closed; only quit via tray menu

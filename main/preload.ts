@@ -47,4 +47,14 @@ contextBridge.exposeInMainWorld("toasty", {
     return () => ipcRenderer.removeListener("ollama:status", handler);
   },
   checkOllama: () => ipcRenderer.invoke("ollama:check"),
+
+  // ── Pet drag ──
+  movePet: (x: number, y: number) => ipcRenderer.invoke("window:movePet", x, y),
+
+  // ── Reminders ──
+  onReminder: (cb: (tasks: any[]) => void) => {
+    const handler = (_e: any, tasks: any[]) => cb(tasks);
+    ipcRenderer.on("toasty:reminder", handler);
+    return () => ipcRenderer.removeListener("toasty:reminder", handler);
+  },
 });

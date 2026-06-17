@@ -214,3 +214,14 @@ export function setSkipTaskbar(value: boolean) {
   setSettings({ skipTaskbar: value });
   if (mainWin && !mainWin.isDestroyed()) mainWin.setSkipTaskbar(value);
 }
+
+export function movePetWindow(x: number, y: number) {
+  const rx = Math.round(x), ry = Math.round(y);
+  setSettings({ catX: rx, catY: ry });
+  if (petWin && !petWin.isDestroyed()) petWin.setPosition(rx, ry);
+}
+
+export function pushReminder(tasks: any[]) {
+  const win = mainWin ?? petWin;
+  if (win && !win.isDestroyed()) win.webContents.send("toasty:reminder", tasks);
+}

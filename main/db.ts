@@ -18,6 +18,7 @@ function getDB(): Database.Database {
         status TEXT NOT NULL DEFAULT 'todo',
         startDate TEXT,
         dueDate TEXT,
+        dueTime TEXT,
         category TEXT NOT NULL DEFAULT '',
         notes TEXT NOT NULL DEFAULT '',
         links TEXT NOT NULL DEFAULT '[]',
@@ -26,6 +27,8 @@ function getDB(): Database.Database {
         updatedAt TEXT NOT NULL
       )
     `);
+    // Migration: add dueTime to existing databases
+    try { db.exec("ALTER TABLE tasks ADD COLUMN dueTime TEXT"); } catch {}
   }
   return db;
 }
@@ -46,9 +49,9 @@ export function saveTask(task: any) {
   getDB()
     .prepare(`
       INSERT INTO tasks
-        (id, title, subtasks, priority, status, startDate, dueDate, category, notes, links, sortOrder, createdAt, updatedAt)
+        (id, title, subtasks, priority, status, startDate, dueDate, dueTime, category, notes, links, sortOrder, createdAt, updatedAt)
       VALUES
-        (@id, @title, @subtasks, @priority, @status, @startDate, @dueDate, @category, @notes, @links, @sortOrder, @createdAt, @updatedAt)
+        (@id, @title, @subtasks, @priority, @status, @startDate, @dueDate, @dueTime, @category, @notes, @links, @sortOrder, @createdAt, @updatedAt)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         subtasks = excluded.subtasks,
@@ -56,6 +59,7 @@ export function saveTask(task: any) {
         status = excluded.status,
         startDate = excluded.startDate,
         dueDate = excluded.dueDate,
+        dueTime = excluded.dueTime,
         category = excluded.category,
         notes = excluded.notes,
         links = excluded.links,
@@ -66,6 +70,7 @@ export function saveTask(task: any) {
       ...task,
       subtasks: JSON.stringify(task.subtasks || []),
       links: JSON.stringify(task.links || []),
+      dueTime: task.dueTime ?? null,
       sortOrder: task.sortOrder ?? 0,
       createdAt: task.createdAt || now,
       updatedAt: now,

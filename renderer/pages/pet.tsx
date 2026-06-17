@@ -6,16 +6,41 @@ export default function PetPage() {
   const [catState, setCatState] = useState("idle");
   const [minimized, setMinimized] = useState(false);
   const [hovered, setHovered] = useState(false);
-  // Click/dblclick disambiguation — single = capture, double = dashboard
-  // Tradeoff: 250ms delay on every single-click (primary action).
-  // If this feels sluggish, fall back to: single-click=capture + "Open dashboard" link inside capture.
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // IPC-based drag state — avoids WebkitAppRegion:"no-drag" covering the entire cat
+  const dragRef = useRef({ dragging: false, moved: false, startX: 0, startY: 0, winX: 0, winY: 0 });
 
   useEffect(() => {
     window.toasty.getSettings().then((s) => setMinimized(s.petMinimized));
     const unsub = window.toasty.onCatState((s) => setCatState(s));
-    return () => unsub();
+
+    const onMove = (e: MouseEvent) => {
+      const d = dragRef.current;
+      if (!d.dragging) return;
+      const dx = e.screenX - d.startX;
+      const dy = e.screenY - d.startY;
+      if (!d.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) d.moved = true;
+      if (d.moved) window.toasty.movePet(d.winX + dx, d.winY + dy);
+    };
+    const onUp = () => { dragRef.current.dragging = false; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      unsub();
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
   }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    dragRef.current = {
+      dragging: true, moved: false,
+      startX: e.screenX, startY: e.screenY,
+      // window.screenLeft/screenTop give the current window position without an IPC call
+      winX: window.screenLeft, winY: window.screenTop,
+    };
+  };
 
   const handleMinimize = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -25,15 +50,15 @@ export default function PetPage() {
   };
 
   const handleCatClick = () => {
+    // Ignore if this was a drag (mouse moved more than 3px)
+    if (dragRef.current.moved) { dragRef.current.moved = false; return; }
     if (clickTimer.current) {
-      // second click within 250ms → dblclick → open dashboard
       clearTimeout(clickTimer.current);
       clickTimer.current = null;
       window.toasty.toggleMode();
     } else {
       clickTimer.current = setTimeout(() => {
         clickTimer.current = null;
-        // single click → open quick-capture
         window.toasty.openCapture();
       }, 250);
     }
@@ -72,14 +97,14 @@ export default function PetPage() {
       ) : (
         /* ── Full cat mode ── */
         <div
+          onMouseDown={handleMouseDown}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
             width: "100vw", height: "100vh",
             display: "flex", alignItems: "center", justifyContent: "center",
-            WebkitAppRegion: "drag",
-            position: "relative",
-          } as React.CSSProperties}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
+            position: "relative", cursor: "grab",
+          }}
         >
           {/* Minimize pill — appears on hover */}
           {hovered && (
@@ -92,24 +117,20 @@ export default function PetPage() {
                 border: "2px solid #5a3e2b",
                 borderRadius: 2,
                 cursor: "pointer",
-                WebkitAppRegion: "no-drag",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 8, color: "#5a3e2b", fontWeight: 700,
                 userSelect: "none",
-              } as React.CSSProperties}
-              title="Minimize to dot"
+              }}
             >
               –
             </div>
           )}
 
-          <div style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-            <Cat
-              state={catState}
-              size={72}
-              onClick={handleCatClick}
-            />
-          </div>
+          <Cat
+            state={catState}
+            size={72}
+            onClick={handleCatClick}
+          />
         </div>
       )}
     </>

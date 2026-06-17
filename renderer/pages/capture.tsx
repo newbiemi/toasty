@@ -44,7 +44,7 @@ export default function CapturePage() {
           title: t.title || text,
           subtasks: [],
           priority: t.priority || "medium",
-          startDate: null, dueDate: safeDate(t.dueDate),
+          startDate: null, dueDate: safeDate(t.dueDate), dueTime: null,
           category: t.category || "", status: "todo",
           createdAt: now, updatedAt: now, notes: text, links: [],
         }));
@@ -64,7 +64,7 @@ export default function CapturePage() {
       const id = `t${String(max + 1).padStart(3, "0")}`;
       await window.toasty.saveTask({
         id, title: text, subtasks: [], priority: "medium",
-        startDate: null, dueDate: null, category: "",
+        startDate: null, dueDate: null, dueTime: null, category: "",
         status: "todo", createdAt: now, updatedAt: now, notes: "", links: [],
       } as any);
     }

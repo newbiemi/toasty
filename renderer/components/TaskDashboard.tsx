@@ -163,7 +163,7 @@ function KanbanCard({
         )}
         {task.dueDate && (
           <span style={{ fontSize: 9, color: overdue ? C.high : C.muted, fontFamily: "var(--font-pixel)" }}>
-            {monthDay(task.dueDate)}
+            {monthDay(task.dueDate)}{task.dueTime ? ` ${task.dueTime}` : ""}
           </span>
         )}
         {task.startDate && !task.dueDate && (
@@ -209,14 +209,22 @@ function TaskModal({
 
   const set = (patch: Partial<Task>) => setT((prev) => ({ ...prev, ...patch }));
 
-  const mergeAdjusted = (prev: Task, patch: any): Task => ({
-    ...prev, ...patch,
-    id: prev.id, createdAt: prev.createdAt,
-    updatedAt: new Date().toISOString(),
-    // Sanitize dates — model may return relative strings like "tomorrow"
-    dueDate: safeDate(patch.dueDate ?? prev.dueDate),
-    startDate: safeDate(patch.startDate ?? prev.startDate),
-  });
+  const mergeAdjusted = (prev: Task, patch: any): Task => {
+    // Normalize subtasks: model may return string[] even though we ask for {text,done}[]
+    const rawSubs = patch.subtasks;
+    const subtasks: Subtask[] = Array.isArray(rawSubs)
+      ? rawSubs.map((s: any) => typeof s === "string" ? { text: s, done: false } : s)
+      : prev.subtasks;
+    return {
+      ...prev, ...patch,
+      id: prev.id, createdAt: prev.createdAt,
+      updatedAt: new Date().toISOString(),
+      subtasks,
+      dueDate: safeDate(patch.dueDate ?? prev.dueDate),
+      startDate: safeDate(patch.startDate ?? prev.startDate),
+      dueTime: patch.dueTime ?? prev.dueTime ?? null,
+    };
+  };
 
   const handleAdjust = async () => {
     if (!adjustText.trim()) return;
@@ -332,7 +340,7 @@ function TaskModal({
         </div>
 
         {/* Dates — row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           <div>
             <label style={fieldLabel}>START DATE</label>
             <input
@@ -349,6 +357,16 @@ function TaskModal({
               value={t.dueDate ?? ""}
               onChange={(e) => set({ dueDate: e.target.value || null })}
               style={{ ...inputStyle, fontSize: 11 }}
+            />
+          </div>
+          <div>
+            <label style={fieldLabel}>DUE TIME</label>
+            <input
+              type="time"
+              value={t.dueTime ?? ""}
+              onChange={(e) => set({ dueTime: e.target.value || null })}
+              disabled={!t.dueDate}
+              style={{ ...inputStyle, fontSize: 11, opacity: t.dueDate ? 1 : 0.4 }}
             />
           </div>
         </div>
@@ -486,11 +504,17 @@ export default function TaskDashboard() {
   const [openAtLogin, setOpenAtLogin] = useState(false);
   const [skipTaskbar, setSkipTaskbarState] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [reminderTasks, setReminderTasks] = useState<any[]>([]);
 
   useEffect(() => {
     window.toasty.listTasks().then((t) => { setTasks(t); setLoaded(true); });
     const unsubCat = window.toasty.onCatState((s) => setCatState(s));
     const unsubOllama = window.toasty.onOllamaStatus((s) => setOllamaStatus(s));
+    const unsubReminder = window.toasty.onReminder((due) => {
+      setReminderTasks(due);
+      // Auto-dismiss banner after 5 min
+      setTimeout(() => setReminderTasks([]), 5 * 60_000);
+    });
     window.toasty.getSettings().then((s) => {
       setOpacityState(s.opacity ?? 1.0);
       setOpenAtLogin(s.openAtLogin ?? false);
@@ -498,7 +522,7 @@ export default function TaskDashboard() {
     });
     // Initial check — main process pushes after 2s but do an eager one too
     window.toasty.checkOllama().then((s) => setOllamaStatus(s));
-    return () => { unsubCat(); unsubOllama(); };
+    return () => { unsubCat(); unsubOllama(); unsubReminder(); };
   }, []);
 
   // ── Add / parse ──────────────────────────────
@@ -516,10 +540,9 @@ export default function TaskDashboard() {
           id: ids[i], title: t.title || text,
           subtasks: [],
           priority: t.priority || "medium",
-          startDate: null, dueDate: safeDate(t.dueDate),
+          startDate: null, dueDate: safeDate(t.dueDate), dueTime: null,
           category: t.category || "", status: "todo" as const,
           createdAt: now, updatedAt: now,
-          // Preserve the full original input as notes for context
           notes: text, links: [],
         }));
         await Promise.all(newTasks.map((t) => window.toasty.saveTask(t)));
@@ -536,7 +559,7 @@ export default function TaskDashboard() {
       const id = nextId(tasks);
       const t: Task = {
         id, title: text, subtasks: [], priority: "medium",
-        startDate: null, dueDate: null, category: "",
+        startDate: null, dueDate: null, dueTime: null, category: "",
         status: "todo", createdAt: now, updatedAt: now, notes: text, links: [],
       };
       await window.toasty.saveTask(t);
@@ -707,6 +730,18 @@ export default function TaskDashboard() {
           <span style={{ color: C.muted }}>
             (opacity slider dims Toasty too — find a sweet spot)
           </span>
+        </div>
+      )}
+
+      {/* ── Reminder banner ── */}
+      {reminderTasks.length > 0 && (
+        <div style={{
+          background: C.high, color: "#fff",
+          padding: "6px 18px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontFamily: "var(--font-pixel)", fontSize: 9, letterSpacing: "0.04em",
+        }}>
+          <span>⏰ DUE NOW: {reminderTasks.map((t: any) => t.title).join(", ")}</span>
+          <span onClick={() => setReminderTasks([])} style={{ cursor: "pointer", marginLeft: 12 }}>✕</span>
         </div>
       )}
 
