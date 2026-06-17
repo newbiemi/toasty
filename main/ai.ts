@@ -1,4 +1,5 @@
 import { getSettings } from "./settings";
+import { listTasks } from "./db";
 
 const OLLAMA_BASE = process.env.OLLAMA_URL || "http://localhost:11434";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b";
@@ -8,6 +9,27 @@ const ADJUST_TIMEOUT_MS = 45_000;
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
+}
+
+// Returns the user's top used categories from the DB — injected into the parse
+// prompt so the model reuses known terms instead of inventing new ones each time.
+function getKnownCategories(): string {
+  try {
+    const tasks = listTasks();
+    const counts: Record<string, number> = {};
+    for (const t of tasks as any[]) {
+      if (t.category) counts[t.category] = (counts[t.category] || 0) + 1;
+    }
+    const top = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([c]) => c);
+    return top.length > 0
+      ? top.join(", ")
+      : "Recruitment, HR/Management, Meeting, Documentation, Engineering, Product Development, Personal";
+  } catch {
+    return "Recruitment, HR/Management, Meeting, Documentation, Engineering, Personal";
+  }
 }
 
 function tomorrowStr() {
@@ -85,22 +107,31 @@ export async function parseTasks(text: string): Promise<any[]> {
   // Strip conversational prefixes so the model isn't confused by greetings
   const cleaned = text.replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "").trim() || text;
 
+  const knownCategories = getKnownCategories();
   const system = `Extract one or more tasks from the text. Return ONLY a JSON array, no markdown, no extra text.
 Today is ${todayStr()}. Tomorrow is ${tomorrowStr()}.
 
 Each item must have ALL of these fields:
-{"title":"short actionable task title","dueDate":"YYYY-MM-DD or null","dueTime":"HH:MM 24h or null","startDate":"YYYY-MM-DD or null","priority":"high|medium|low","category":"single topic word like work/personal/health/finance (NOT a date or day name)","subtasks":[{"text":"step","done":false}],"notes":"brief extra detail not captured in title, or empty string","links":["https://url"] or []}
+{"title":"...","dueDate":"YYYY-MM-DD or null","dueTime":"HH:MM 24h or null","startDate":"YYYY-MM-DD or null","priority":"high|medium|low","category":"...","subtasks":[{"text":"step","done":false}],"notes":"...","links":["https://url"] or []}
 
-Rules:
-- title must be concise — NEVER repeat the full input sentence as the title.
-- NEVER output relative date words — always convert to YYYY-MM-DD (tomorrow → ${tomorrowStr()}, "next Monday" → calculate the real date).
-- If a time is mentioned without a date (e.g. "at 3pm", "remind me at 9am"), set dueDate to today (${todayStr()}).
-- Convert 12h times to 24h: "3pm" → "15:00", "9am" → "09:00", "noon" → "12:00".
-- Add subtasks when the task implies multiple distinct steps; return [] for simple single-action tasks.
-- Extract any URLs from the text into links[]; do not include them in notes.
-- category is a topic type, NOT a day name or date.
-- Ignore greetings and filler words.
-- If no task is found, return [].`;
+TITLE: Start with an action verb (Create, Update, Review, Confirm, Schedule, Prepare, Grant, Announce, Delegate, Optimize, Modify, Audit, Refine...). Be concise — NEVER repeat the full input sentence verbatim. For meetings: "Meeting with [Name] — [Purpose]".
+
+PRIORITY:
+- high: hard deadline within 1 week, requires approval from senior stakeholder, or is blocking other work
+- medium: standard work task with a flexible timeline
+- low: nice-to-have, no deadline pressure
+
+CATEGORY: Pick the closest match from the user's existing categories, or create a new one in the same compound format (e.g. "HR/Analytics", "AI Recruitment Project"). Known categories: ${knownCategories}. NEVER use a date, day name, or vague word ("today", "work", "task") as a category.
+
+DATES: NEVER output relative words — always convert to YYYY-MM-DD. "tomorrow" → ${tomorrowStr()}. If a time is given without a date, set dueDate to today (${todayStr()}). Convert 12h to 24h: "3pm"→"15:00", "9am"→"09:00", "noon"→"12:00".
+
+SUBTASKS: Add specific, concrete, completable steps when the task has multiple distinct actions. Return [] for simple single-action tasks.
+
+NOTES: Capture who requested the task, event context, stakeholder names, and technical details not in the title or subtasks. Use empty string "" if nothing useful remains.
+
+LINKS: Extract only http:// or https:// URLs into links[]. Do not repeat URLs in notes.
+
+Ignore greetings and filler words. If multiple tasks are described, return all in the array. If no task found, return [].`;
 
   const raw = await callOllama(system, cleaned, PARSE_TIMEOUT_MS);
   const result = JSON.parse(raw);
