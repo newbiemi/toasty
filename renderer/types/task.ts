@@ -25,6 +25,7 @@ export interface ParsedTask {
   priority: "high" | "medium" | "low";
   startDate: string | null;
   dueDate: string | null;
+  dueTime: string | null;
   category: string;
   notes: string;
   links: string[];

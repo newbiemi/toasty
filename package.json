@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "nextron",
     "build": "nextron build",
-    "rebuild": "electron-builder install-app-deps"
+    "rebuild": "electron-builder install-app-deps",
+    "migrate": "electron scripts/migrate-from-supabase.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",

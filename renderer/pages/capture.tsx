@@ -1,5 +1,6 @@
 import Head from "next/head";
 import { useState, useEffect, useRef } from "react";
+import { buildTaskFromParsed } from "@/lib/taskFromParsed";
 
 const C = {
   cream: "#f4e4c1",
@@ -38,16 +39,13 @@ export default function CapturePage() {
           const n = t.id.match(/^t(\d+)$/);
           return n ? Math.max(m, parseInt(n[1], 10)) : m;
         }, 0);
-        const safeDate = (v: any) => (!v || v === "null" || !/^\d{4}-\d{2}-\d{2}$/.test(String(v))) ? null : String(v);
-        const newTasks = parsed.map((t: any, i: number) => ({
-          id: `t${String(max + 1 + i).padStart(3, "0")}`,
-          title: t.title || text,
-          subtasks: [],
-          priority: t.priority || "medium",
-          startDate: null, dueDate: safeDate(t.dueDate), dueTime: null,
-          category: t.category || "", status: "todo",
-          createdAt: now, updatedAt: now, notes: text, links: [],
-        }));
+        const newTasks = parsed.map((t: any, i: number) =>
+          buildTaskFromParsed(t, {
+            id: `t${String(max + 1 + i).padStart(3, "0")}`,
+            now,
+            rawText: text,
+          })
+        );
         await Promise.all(newTasks.map((t: any) => window.toasty.saveTask(t)));
         aiOk = true;
       }

@@ -1,3 +1,5 @@
+import { getSettings } from "./settings";
+
 const OLLAMA_BASE = process.env.OLLAMA_URL || "http://localhost:11434";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b";
 // Generous timeout: first parse after boot may hit a cold Ollama (daemon not loaded yet)
@@ -6,6 +8,12 @@ const ADJUST_TIMEOUT_MS = 45_000;
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
+}
+
+function tomorrowStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
 }
 
 function extractJSON(raw: string): string {
@@ -22,13 +30,15 @@ function extractJSON(raw: string): string {
 async function callOllama(systemPrompt: string, userMessage: string, timeoutMs: number): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Prefer the model from settings; fall back to env var / hardcoded default
+  const model = getSettings().model || DEFAULT_MODEL;
   try {
     const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model,
         system: systemPrompt,
         prompt: userMessage,
         format: "json",
@@ -58,13 +68,39 @@ export async function checkOllama(): Promise<"running" | "offline"> {
   }
 }
 
+export async function listModels(): Promise<string[]> {
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: controller.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.models ?? []).map((m: any) => String(m.name));
+  } catch {
+    return [];
+  }
+}
+
 export async function parseTasks(text: string): Promise<any[]> {
   // Strip conversational prefixes so the model isn't confused by greetings
   const cleaned = text.replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "").trim() || text;
 
-  const system = `Extract tasks from the text. Return ONLY a JSON array, no markdown.
-Each item: {"title":"short task title","dueDate":"YYYY-MM-DD or null","priority":"high|medium|low","category":"topic word like work/personal/finance or null"}
-Rules: title must be concise (not the full input sentence). Category must be a topic type, NOT a day name or date. Ignore greetings. Today is ${todayStr()}. If no task found, return [].`;
+  const system = `Extract one or more tasks from the text. Return ONLY a JSON array, no markdown, no extra text.
+Today is ${todayStr()}. Tomorrow is ${tomorrowStr()}.
+
+Each item must have ALL of these fields:
+{"title":"short actionable task title","dueDate":"YYYY-MM-DD or null","dueTime":"HH:MM 24h or null","startDate":"YYYY-MM-DD or null","priority":"high|medium|low","category":"single topic word like work/personal/health/finance (NOT a date or day name)","subtasks":[{"text":"step","done":false}],"notes":"brief extra detail not captured in title, or empty string","links":["https://url"] or []}
+
+Rules:
+- title must be concise — NEVER repeat the full input sentence as the title.
+- NEVER output relative date words — always convert to YYYY-MM-DD (tomorrow → ${tomorrowStr()}, "next Monday" → calculate the real date).
+- If a time is mentioned without a date (e.g. "at 3pm", "remind me at 9am"), set dueDate to today (${todayStr()}).
+- Convert 12h times to 24h: "3pm" → "15:00", "9am" → "09:00", "noon" → "12:00".
+- Add subtasks when the task implies multiple distinct steps; return [] for simple single-action tasks.
+- Extract any URLs from the text into links[]; do not include them in notes.
+- category is a topic type, NOT a day name or date.
+- Ignore greetings and filler words.
+- If no task is found, return [].`;
 
   const raw = await callOllama(system, cleaned, PARSE_TIMEOUT_MS);
   const result = JSON.parse(raw);
@@ -72,12 +108,6 @@ Rules: title must be concise (not the full input sentence). Category must be a t
   const arr = Array.isArray(result) ? result : (result && result.title ? [result] : []);
   // Guard: if the model echoed the full input as the title, it failed — treat as empty
   return arr.filter((t: any) => t.title && t.title.trim().length < cleaned.length * 0.8);
-}
-
-function tomorrowStr() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
 }
 
 export async function adjustTask(taskJSON: string, instruction: string): Promise<any> {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Task, Subtask } from "@/types/task";
 import Cat from "./Cat";
+import { buildTaskFromParsed, safeDate } from "@/lib/taskFromParsed";
 
 // ─── Palette ─────────────────────────────────
 const C = {
@@ -40,11 +41,6 @@ const todayStr = () => new Date().toISOString().split("T")[0];
 const isOverdue = (due: string | null, status: string) =>
   due != null && status !== "done" && due < todayStr();
 
-// Reject non-YYYY-MM-DD strings so "tomorrow" / "null" strings don't reach the DB
-const safeDate = (v: any): string | null => {
-  if (!v || v === "null") return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : null;
-};
 
 function nextIds(tasks: Task[], count: number): string[] {
   const max = tasks.reduce((m, t) => {
@@ -505,6 +501,8 @@ export default function TaskDashboard() {
   const [skipTaskbar, setSkipTaskbarState] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [reminderTasks, setReminderTasks] = useState<any[]>([]);
+  const [model, setModel] = useState("llama3.2:3b");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   useEffect(() => {
     window.toasty.listTasks().then((t) => { setTasks(t); setLoaded(true); });
@@ -519,7 +517,10 @@ export default function TaskDashboard() {
       setOpacityState(s.opacity ?? 1.0);
       setOpenAtLogin(s.openAtLogin ?? false);
       setSkipTaskbarState(s.skipTaskbar ?? false);
+      setModel(s.model ?? "llama3.2:3b");
     });
+    // Populate model datalist from Ollama
+    window.toasty.listModels().then(setAvailableModels);
     // Initial check — main process pushes after 2s but do an eager one too
     window.toasty.checkOllama().then((s) => setOllamaStatus(s));
     return () => { unsubCat(); unsubOllama(); unsubReminder(); };
@@ -536,15 +537,9 @@ export default function TaskDashboard() {
       if (parsed.length > 0) {
         const now = new Date().toISOString();
         const ids = nextIds(tasks, parsed.length);
-        const newTasks: Task[] = parsed.map((t: any, i: number) => ({
-          id: ids[i], title: t.title || text,
-          subtasks: [],
-          priority: t.priority || "medium",
-          startDate: null, dueDate: safeDate(t.dueDate), dueTime: null,
-          category: t.category || "", status: "todo" as const,
-          createdAt: now, updatedAt: now,
-          notes: text, links: [],
-        }));
+        const newTasks: Task[] = parsed.map((t: any, i: number) =>
+          buildTaskFromParsed(t, { id: ids[i], now, rawText: text })
+        );
         await Promise.all(newTasks.map((t) => window.toasty.saveTask(t)));
         setTasks((prev) => [...newTasks, ...prev]);
         setInput("");
@@ -726,6 +721,24 @@ export default function TaskDashboard() {
               style={{ accentColor: C.orange }}
             />
             <span style={{ color: C.text }}>HIDE FROM TASKBAR</span>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: C.text }}>MODEL</span>
+            <input
+              list="ollama-models"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              onBlur={() => { if (model.trim()) window.toasty.setSettings({ model: model.trim() }); }}
+              placeholder="llama3.2:3b"
+              style={{
+                fontFamily: "var(--font-pixel)", fontSize: 8,
+                background: C.tan, border: `1px solid ${C.border}`,
+                color: C.text, padding: "2px 6px", width: 140,
+              }}
+            />
+            <datalist id="ollama-models">
+              {availableModels.map((m) => <option key={m} value={m} />)}
+            </datalist>
           </label>
           <span style={{ color: C.muted }}>
             (opacity slider dims Toasty too — find a sweet spot)
