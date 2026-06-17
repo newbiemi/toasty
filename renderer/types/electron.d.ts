@@ -36,6 +36,10 @@ interface ToastyAPI {
   // Capture
   openCapture: () => Promise<void>;
   closeCapture: () => Promise<void>;
+  // Chat
+  openChat: () => Promise<void>;
+  closeChat: () => Promise<void>;
+  chat: (messages: Array<{ role: "user" | "assistant"; content: string }>) => Promise<string>;
   // Auto-launch
   setAutoLaunch: (enabled: boolean) => Promise<boolean>;
   // Skip taskbar

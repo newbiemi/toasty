@@ -1,12 +1,13 @@
-import { app, ipcMain } from "electron";
+import { app, ipcMain, globalShortcut } from "electron";
 import { listTasks, saveTask, deleteTask, clearDone } from "./db";
-import { parseTasks, adjustTask, checkOllama, listModels } from "./ai";
+import { parseTasks, adjustTask, chat, checkOllama, listModels } from "./ai";
 import { getSettings, setSettings } from "./settings";
 import {
   createMainWindow, createPetWindow, setupTray,
   toggleMode, pushCatState, setPetSize,
   minimizeMain, hideMain, setMainOpacity,
   openCaptureWindow, closeCaptureWindow,
+  openChatWindow, closeChatWindow,
   applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
   movePetWindow, getPetPosition, pushReminder, setPetIgnoreMouse,
 } from "./windows";
@@ -48,6 +49,15 @@ ipcMain.handle("window:setOpacity", (_e, value: number) => setMainOpacity(value)
 // ─── IPC: Capture window ──────────────────────
 ipcMain.handle("window:openCapture", () => openCaptureWindow());
 ipcMain.handle("window:closeCapture", () => closeCaptureWindow());
+
+// ─── IPC: Chat window ─────────────────────────
+ipcMain.handle("window:openChat", () => openChatWindow());
+ipcMain.handle("window:closeChat", () => closeChatWindow());
+ipcMain.handle("ai:chat", async (_e, messages) => {
+  pushCatState("thinking");
+  try { return await chat(messages); }
+  finally { pushCatState("idle"); }
+});
 
 // ─── IPC: Auto-launch ─────────────────────────
 ipcMain.handle("window:setAutoLaunch", (_e, enabled: boolean) => {
@@ -123,7 +133,15 @@ app.on("ready", async () => {
   setInterval(tickOllama, 30_000);
   // Reminder tick every minute
   setInterval(tickReminder, 60_000);
+  // Global capture hotkey — note: Ctrl+Shift+T is "reopen closed tab" in browsers;
+  // this steals it system-wide while Toasty runs.
+  const registered = globalShortcut.register("CommandOrControl+Shift+T", () => {
+    openCaptureWindow();
+  });
+  if (!registered) console.warn("[toasty] Ctrl+Shift+T hotkey already claimed by another app");
 });
+
+app.on("will-quit", () => globalShortcut.unregisterAll());
 
 // Tray app — never quit on window-all-closed; only quit via tray menu
 app.on("window-all-closed", () => { /* intentionally empty */ });

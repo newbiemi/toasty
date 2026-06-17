@@ -131,6 +131,22 @@ export default function CapturePage() {
           }}
         />
         <button
+          onClick={() => { window.toasty.closeCapture(); window.toasty.openChat(); }}
+          title="Chat with Toasty"
+          style={{
+            background: "transparent",
+            border: `2px solid ${C.border}`,
+            borderRadius: 0,
+            padding: "2px 5px",
+            fontSize: 11,
+            cursor: "pointer",
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          💬
+        </button>
+        <button
           onClick={handleAdd}
           disabled={parsing || !input.trim()}
           style={{

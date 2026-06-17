@@ -11,6 +11,7 @@ const DEV_URL = "http://localhost:8888";
 export let mainWin: BrowserWindow | null = null;
 export let petWin: BrowserWindow | null = null;
 export let captureWin: BrowserWindow | null = null;
+export let chatWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 function webPrefs() {
@@ -118,6 +119,38 @@ export function closeCaptureWindow(): void {
   if (captureWin && !captureWin.isDestroyed()) captureWin.close();
 }
 
+export async function openChatWindow(): Promise<void> {
+  if (chatWin && !chatWin.isDestroyed()) { chatWin.focus(); return; }
+  const s = getSettings();
+  const { screen } = require("electron");
+  const { workAreaSize } = screen.getPrimaryDisplay();
+  const [catX, catY] = (petWin && !petWin.isDestroyed())
+    ? petWin.getPosition()
+    : [s.catX ?? 50, s.catY ?? 50];
+  const W = 360, H = 460;
+  // Prefer right of cat; fall back to left if it would clip off-screen
+  const xRight = catX + PET_FULL + 8;
+  const x = Math.max(0, xRight + W <= workAreaSize.width ? xRight : catX - W - 8);
+  const y = Math.max(0, Math.min(catY, workAreaSize.height - H));
+  chatWin = new BrowserWindow({
+    x, y, width: W, height: H,
+    frame: false, transparent: false,
+    alwaysOnTop: true, skipTaskbar: true, resizable: false,
+    webPreferences: webPrefs(),
+  });
+  chatWin.setOpacity(s.opacity ?? 1.0);
+  chatWin.on("closed", () => { chatWin = null; });
+  if (isProd) {
+    chatWin.loadURL("app://./chat.html");
+  } else {
+    chatWin.loadURL(`${DEV_URL}/chat`);
+  }
+}
+
+export function closeChatWindow(): void {
+  if (chatWin && !chatWin.isDestroyed()) chatWin.close();
+}
+
 export function setupTray() {
   const size = 16;
   const buf = Buffer.alloc(size * size * 4);
@@ -214,6 +247,7 @@ export function setMainOpacity(value: number) {
   setSettings({ opacity: clamped });
   if (mainWin && !mainWin.isDestroyed()) mainWin.setOpacity(clamped);
   if (captureWin && !captureWin.isDestroyed()) captureWin.setOpacity(clamped);
+  if (chatWin && !chatWin.isDestroyed()) chatWin.setOpacity(clamped);
 }
 
 export function applyAutoLaunch() {

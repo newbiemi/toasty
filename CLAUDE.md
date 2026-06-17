@@ -16,7 +16,7 @@ reminds you of deadlines, chats via Ollama, and lets you capture thoughts by cli
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
-## Project Structure (Phase 5 — live)
+## Project Structure (Phase 7 — live)
 ```
 main/
   background.ts       # Electron app lifecycle + IPC handler registration + ambient state tick
@@ -40,7 +40,8 @@ renderer/
     _app.tsx          # Minimal Next.js App wrapper
     index.tsx         # Dashboard (renders TaskDashboard)
     pet.tsx           # Transparent pet-overlay; single-click→capture, double-click→dashboard
-    capture.tsx       # Slim frameless quick-capture box — paste task, auto-close after add
+    capture.tsx       # Slim frameless quick-capture box — paste task, auto-close after add; 💬 button opens chat
+    chat.tsx          # Floating 360×460 chat window — multi-turn Ollama /api/chat; drag header + X close
   components/
     TaskDashboard.tsx # Full UI: custom drag bar, opacity slider, settings panel (auto-launch +
                       # model selector), kanban with click-to-edit cards, TaskModal (all fields +
@@ -65,10 +66,10 @@ package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-bui
 
 ## IPC Surface (`window.toasty`)
 `listTasks()` · `saveTask(task)` · `deleteTask(id)` · `clearDone()` ·
-`parse(text)` · `adjust(task, instruction)` · `listModels()→string[]` ·
+`parse(text)` · `adjust(task, instruction)` · `chat(messages)→string` · `listModels()→string[]` ·
 `getSettings()` · `setSettings(patch)` · `toggleMode()` · `onCatState(cb)→unsub` ·
 `minimize()` · `closeWindow()` · `setOpacity(v)` ·
-`openCapture()` · `closeCapture()` · `setAutoLaunch(enabled)` ·
+`openCapture()` · `closeCapture()` · `openChat()` · `closeChat()` · `setAutoLaunch(enabled)` ·
 `getPetPosition()→{x,y}` · `movePet(x,y)` · `setPetIgnore(bool)` · `onReminder(cb)→unsub` · `checkOllama()`
 
 ## Key Design Decisions (updated Phase 3)
@@ -113,6 +114,7 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 - **Phase 4** ✓ — Draggable cat (IPC-based) · dueTime field + reminder tick · subtask generation fix · reminder banner in dashboard
 - **Phase 5** ✓ — Full-field parser (dueTime/subtasks/startDate/notes/links at capture time) · Settings model selector (live model switching) · listModels IPC · shared taskFromParsed helper · Supabase→SQLite one-time import script (`npm run migrate`)
 - **Phase 6** ✓ — Pet window size-lock (fixes DPI drift on 125%/150% scaling) · transparent corner click-through (per-pixel alpha via offscreen canvas + `setIgnoreMouseEvents(true,{forward:true})`)
+- **Phase 7** ✓ — Global hotkey `Ctrl+Shift+T` → opens capture window · Chat with Toasty (floating 360×460 window, multi-turn `/api/chat`, task-aware system prompt, 💬 entry via capture box)
 
 ## Dev Commands
 ```bash

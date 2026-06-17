@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld("toasty", {
   openCapture: () => ipcRenderer.invoke("window:openCapture"),
   closeCapture: () => ipcRenderer.invoke("window:closeCapture"),
 
+  // ── Chat window ──
+  openChat: () => ipcRenderer.invoke("window:openChat"),
+  closeChat: () => ipcRenderer.invoke("window:closeChat"),
+  chat: (messages: any[]) => ipcRenderer.invoke("ai:chat", messages),
+
   // ── Auto-launch ──
   setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke("window:setAutoLaunch", enabled),
 

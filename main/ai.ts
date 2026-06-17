@@ -6,6 +6,7 @@ const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b";
 // Generous timeout: first parse after boot may hit a cold Ollama (daemon not loaded yet)
 const PARSE_TIMEOUT_MS = 30_000;
 const ADJUST_TIMEOUT_MS = 45_000;
+const CHAT_TIMEOUT_MS = 60_000;
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -139,6 +140,52 @@ Ignore greetings and filler words. If multiple tasks are described, return all i
   const arr = Array.isArray(result) ? result : (result && result.title ? [result] : []);
   // Guard: if the model echoed the full input as the title, it failed — treat as empty
   return arr.filter((t: any) => t.title && t.title.trim().length < cleaned.length * 0.8);
+}
+
+export async function chat(
+  messages: Array<{ role: "user" | "assistant"; content: string }>
+): Promise<string> {
+  const model = getSettings().model || DEFAULT_MODEL;
+
+  // Inject pending tasks so Toasty can answer "what do I have due today?" etc.
+  let taskContext = "";
+  try {
+    const tasks = listTasks() as any[];
+    const pending = tasks.filter((t) => t.status !== "done");
+    if (pending.length > 0) {
+      const lines = pending
+        .slice(0, 10)
+        .map((t) => `- ${t.title}${t.dueDate ? ` (due ${t.dueDate})` : ""}`)
+        .join("\n");
+      taskContext = `\n\nUser's current pending tasks:\n${lines}${pending.length > 10 ? `\n...and ${pending.length - 10} more` : ""}`;
+    }
+  } catch {}
+
+  const system = `You are Toasty, a friendly pixel-cat companion who helps with tasks and productivity. Be warm, concise, and helpful. Today is ${todayStr()}.${taskContext}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: system }, ...messages],
+        stream: false,
+        options: { temperature: 0.7 },
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Ollama error ${res.status}: ${text}`);
+    }
+    const data = await res.json();
+    return data.message?.content ?? "(no response)";
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function adjustTask(taskJSON: string, instruction: string): Promise<any> {
