@@ -71,7 +71,7 @@ export default function PetPage() {
     <>
       <Head>
         <style>{`
-          html, body {
+          html, body, #__next {
             background: transparent !important;
             margin: 0; padding: 0; overflow: hidden;
             width: 88px; height: 88px;

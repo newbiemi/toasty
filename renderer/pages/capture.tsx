@@ -79,17 +79,18 @@ export default function CapturePage() {
     <>
       <Head>
         <style>{`
-          html, body {
+          html, body, #__next {
             margin: 0; padding: 0; overflow: hidden;
             background: ${C.panel};
             font-family: 'JetBrains Mono', monospace;
+            width: 380px; height: 52px;
           }
           * { box-sizing: border-box; }
         `}</style>
       </Head>
 
       <div style={{
-        width: "100%", height: 52,
+        width: 380, height: 52,
         display: "flex", alignItems: "center",
         background: C.panel,
         border: `3px solid ${C.border}`,
