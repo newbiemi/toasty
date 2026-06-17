@@ -10,7 +10,7 @@ const C = {
   orange: "#e8943b",
 };
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user" | "assistant"; content: string; tasksSaved?: number };
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -33,8 +33,8 @@ export default function ChatPage() {
     setInput("");
     setLoading(true);
     try {
-      const reply = await window.toasty.chat(next);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const { reply, added } = await window.toasty.chat(next);
+      setMessages((prev) => [...prev, { role: "assistant", content: reply, tasksSaved: added.length }]);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -126,6 +126,15 @@ export default function ChatPage() {
               }}>
                 {m.content}
               </div>
+              {!!m.tasksSaved && m.tasksSaved > 0 && (
+                <div style={{
+                  fontSize: 8, color: C.orange,
+                  fontFamily: "'Press Start 2P', monospace",
+                  marginTop: 3,
+                }}>
+                  ✓ {m.tasksSaved} task{m.tasksSaved > 1 ? "s" : ""} saved to dashboard
+                </div>
+              )}
             </div>
           ))}
 

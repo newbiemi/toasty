@@ -53,10 +53,75 @@ ipcMain.handle("window:closeCapture", () => closeCaptureWindow());
 // ─── IPC: Chat window ─────────────────────────
 ipcMain.handle("window:openChat", () => openChatWindow());
 ipcMain.handle("window:closeChat", () => closeChatWindow());
+
+// Minimal task builder for use inside main process (mirrors renderer/lib/taskFromParsed.ts logic)
+function buildTaskForDB(parsed: any, id: string): any {
+  const now = new Date().toISOString();
+  const safeDate = (v: any) =>
+    v && v !== "null" && /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : null;
+  const safeTime = (v: any) =>
+    v && v !== "null" && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null;
+  const rawSubs = parsed.subtasks;
+  const subtasks = Array.isArray(rawSubs)
+    ? rawSubs.map((s: any) =>
+        typeof s === "string" ? { text: s, done: false } : { text: String(s.text ?? ""), done: !!s.done }
+      )
+    : [];
+  const links = Array.isArray(parsed.links)
+    ? parsed.links.filter((l: any) => typeof l === "string" && /^https?:\/\//.test(l))
+    : [];
+  const priority = ["high", "medium", "low"].includes(parsed.priority) ? parsed.priority : "medium";
+  const dueTime = safeTime(parsed.dueTime);
+  const dueDate = safeDate(parsed.dueDate) ?? (dueTime ? now.slice(0, 10) : null);
+  return {
+    id, title: parsed.title || "(untitled)", subtasks, priority,
+    status: "todo", startDate: safeDate(parsed.startDate), dueDate, dueTime,
+    category: parsed.category || "", notes: parsed.notes || "", links,
+    sortOrder: 0, createdAt: now, updatedAt: now,
+  };
+}
+
+const TASK_INTENT_PHRASES = [
+  "i'll add", "i've added", "i will add", "i'm adding", "let me add",
+  "i can add", "adding that", "i'll create", "i've created", "i will create",
+  "new task", "task added", "task is added", "task has been", "created a task",
+  "saving that", "i'll save",
+];
+
 ipcMain.handle("ai:chat", async (_e, messages) => {
   pushCatState("thinking");
-  try { return await chat(messages); }
-  finally { pushCatState("idle"); }
+  const added: any[] = [];
+  try {
+    const reply = await chat(messages);
+    const lower = reply.toLowerCase();
+    const hasTaskIntent = TASK_INTENT_PHRASES.some((p) => lower.includes(p));
+    if (hasTaskIntent) {
+      try {
+        const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user")?.content ?? "";
+        const parsed = await parseTasks(lastUserMsg);
+        if (parsed.length > 0) {
+          const existing = listTasks() as any[];
+          const max = existing.reduce((m: number, t: any) => {
+            const n = t.id?.match(/^t(\d+)$/);
+            return n ? Math.max(m, parseInt(n[1], 10)) : m;
+          }, 0);
+          for (let i = 0; i < parsed.length; i++) {
+            const task = buildTaskForDB(parsed[i], `t${String(max + 1 + i).padStart(3, "0")}`);
+            saveTask(task);
+            added.push(task);
+          }
+        }
+      } catch {}
+    }
+    return { reply, added };
+  } finally {
+    if (added.length > 0) {
+      pushCatState("happy");
+      setTimeout(() => pushCatState("idle"), 2000);
+    } else {
+      pushCatState("idle");
+    }
+  }
 });
 
 // ─── IPC: Auto-launch ─────────────────────────
