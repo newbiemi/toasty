@@ -59,6 +59,11 @@ export async function createPetWindow(): Promise<BrowserWindow> {
     hasShadow: false, resizable: false, skipTaskbar: true,
     webPreferences: webPrefs(),
   });
+  // A1: Hard-lock size so the OS cannot resize the transparent window.
+  // Required on Windows 125%/150% scaling: repeated setPosition on a transparent window
+  // accumulates DIP↔physical rounding drift and grows the bounding box.
+  petWin.setMinimumSize(size, size);
+  petWin.setMaximumSize(size, size);
   petWin.on("move", () => {
     if (!petWin) return;
     const [x, y] = petWin.getPosition();
@@ -185,7 +190,12 @@ export function setPetSize(size: "dot" | "full") {
   if (!petWin || petWin.isDestroyed()) return;
   const dim = minimized ? PET_DOT : PET_FULL;
   const [x, y] = petWin.getPosition();
+  // A2: Release floor → raise ceiling → resize → re-pin, so min never exceeds max
+  // (e.g. 34→88 restore: setMinimumSize(88) while max=34 would be undefined on Windows).
+  petWin.setMinimumSize(0, 0);
+  petWin.setMaximumSize(dim, dim);
   petWin.setSize(dim, dim);
+  petWin.setMinimumSize(dim, dim);
   petWin.setPosition(x, y);
 }
 
@@ -231,10 +241,19 @@ export function movePetWindow(x: number, y: number) {
   const cx = Math.round(Math.min(Math.max(x, -PET_FULL / 2), workAreaSize.width - PET_FULL / 2));
   const cy = Math.round(Math.min(Math.max(y, 0), workAreaSize.height - PET_FULL / 2));
   setSettings({ catX: cx, catY: cy });
-  if (petWin && !petWin.isDestroyed()) petWin.setPosition(cx, cy);
+  // A3: Re-assert canonical size on every drag tick so DPI rounding never accumulates.
+  if (petWin && !petWin.isDestroyed()) {
+    const dim = getSettings().petMinimized ? PET_DOT : PET_FULL;
+    petWin.setBounds({ x: cx, y: cy, width: dim, height: dim });
+  }
 }
 
 export function pushReminder(tasks: any[]) {
   const win = mainWin ?? petWin;
   if (win && !win.isDestroyed()) win.webContents.send("toasty:reminder", tasks);
+}
+
+export function setPetIgnoreMouse(ignore: boolean) {
+  if (petWin && !petWin.isDestroyed())
+    petWin.setIgnoreMouseEvents(ignore, { forward: true });
 }

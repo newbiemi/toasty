@@ -23,6 +23,7 @@ interface ToastyAPI {
   // AI
   parse: (text: string) => Promise<any[]>;
   adjust: (taskJSON: string, instruction: string) => Promise<any>;
+  listModels: () => Promise<string[]>;
   // Settings + Mode
   getSettings: () => Promise<ToastySettings>;
   setSettings: (patch: Partial<ToastySettings>) => Promise<ToastySettings>;
@@ -47,6 +48,7 @@ interface ToastyAPI {
   // Pet drag
   getPetPosition: () => Promise<{ x: number; y: number }>;
   movePet: (x: number, y: number) => Promise<void>;
+  setPetIgnore: (ignore: boolean) => Promise<void>;
   // Reminders
   onReminder: (cb: (tasks: any[]) => void) => () => void;
 }

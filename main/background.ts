@@ -1,6 +1,6 @@
 import { app, ipcMain } from "electron";
 import { listTasks, saveTask, deleteTask, clearDone } from "./db";
-import { parseTasks, adjustTask, checkOllama } from "./ai";
+import { parseTasks, adjustTask, checkOllama, listModels } from "./ai";
 import { getSettings, setSettings } from "./settings";
 import {
   createMainWindow, createPetWindow, setupTray,
@@ -8,7 +8,7 @@ import {
   minimizeMain, hideMain, setMainOpacity,
   openCaptureWindow, closeCaptureWindow,
   applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
-  movePetWindow, getPetPosition, pushReminder,
+  movePetWindow, getPetPosition, pushReminder, setPetIgnoreMouse,
 } from "./windows";
 
 // ─── IPC: DB ──────────────────────────────────
@@ -62,9 +62,11 @@ ipcMain.handle("window:setSkipTaskbar", (_e, value: boolean) => setSkipTaskbar(v
 // ─── IPC: Pet drag ───────────────────────────
 ipcMain.handle("window:getPetPosition", () => getPetPosition());
 ipcMain.handle("window:movePet", (_e, x: number, y: number) => movePetWindow(x, y));
+ipcMain.handle("window:setPetIgnore", (_e, ignore: boolean) => setPetIgnoreMouse(ignore));
 
 // ─── IPC: Ollama status ───────────────────────
 ipcMain.handle("ollama:check", async () => checkOllama());
+ipcMain.handle("ai:models", () => listModels());
 
 // ─── Ambient state tick ───────────────────────
 function isInQuietHours(h: number, from: number, to: number): boolean {

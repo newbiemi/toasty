@@ -10,17 +10,81 @@ export default function PetPage() {
   // IPC-based drag state — avoids WebkitAppRegion:"no-drag" covering the entire cat
   const dragRef = useRef({ dragging: false, moved: false, startX: 0, startY: 0, winX: 0, winY: 0 });
 
+  // B2: per-pixel click-through refs
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const ignoreRef = useRef(false);      // current setIgnoreMouseEvents state
+  const hasFrameRef = useRef(false);    // true once a sprite frame has been drawn to canvas
+  const minimizedRef = useRef(false);   // mirror of minimized state for use inside event handlers
+
+  // Create offscreen canvas once for alpha sampling
+  useEffect(() => {
+    const c = document.createElement("canvas");
+    c.width = 72; c.height = 72;
+    canvasRef.current = c;
+    return () => { canvasRef.current = null; };
+  }, []);
+
+  // Keep minimizedRef in sync; reset to interactive when entering dot mode
+  useEffect(() => {
+    minimizedRef.current = minimized;
+    if (minimized && ignoreRef.current) {
+      ignoreRef.current = false;
+      window.toasty.setPetIgnore(false);
+    }
+  }, [minimized]);
+
   useEffect(() => {
     window.toasty.getSettings().then((s) => setMinimized(s.petMinimized));
     const unsub = window.toasty.onCatState((s) => setCatState(s));
 
     const onMove = (e: MouseEvent) => {
       const d = dragRef.current;
-      if (!d.dragging) return;
-      const dx = e.screenX - d.startX;
-      const dy = e.screenY - d.startY;
-      if (!d.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) d.moved = true;
-      if (d.moved) window.toasty.movePet(d.winX + dx, d.winY + dy);
+      if (d.dragging) {
+        const dx = e.screenX - d.startX;
+        const dy = e.screenY - d.startY;
+        if (!d.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) d.moved = true;
+        if (d.moved) window.toasty.movePet(d.winX + dx, d.winY + dy);
+        // Always interactive while dragging — never let a drag flip to click-through
+        if (ignoreRef.current) { ignoreRef.current = false; window.toasty.setPetIgnore(false); }
+        return;
+      }
+
+      // Per-pixel click-through: dot mode is always a solid circle, skip
+      if (minimizedRef.current) return;
+
+      // Minimize button overlay — interactive regardless of alpha
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el?.closest("[data-min-btn]")) {
+        if (ignoreRef.current) { ignoreRef.current = false; window.toasty.setPetIgnore(false); }
+        return;
+      }
+
+      // No frame loaded yet (emoji fallback or initial load) — stay interactive
+      if (!hasFrameRef.current) {
+        if (ignoreRef.current) { ignoreRef.current = false; window.toasty.setPetIgnore(false); }
+        return;
+      }
+
+      // Sample sprite alpha at cursor position.
+      // Sprite (72×72) is centered in the 88×88 window → 8px margin on each side.
+      const sx = Math.round(e.clientX - 8);
+      const sy = Math.round(e.clientY - 8);
+      let shouldIgnore: boolean;
+      if (sx < 0 || sx >= 72 || sy < 0 || sy >= 72) {
+        shouldIgnore = true; // outside sprite box → transparent corner
+      } else {
+        try {
+          const ctx = canvasRef.current?.getContext("2d") ?? null;
+          shouldIgnore = ctx ? ctx.getImageData(sx, sy, 1, 1).data[3] < 10 : false;
+        } catch {
+          shouldIgnore = false; // tainted canvas — treat as opaque
+        }
+      }
+
+      if (shouldIgnore !== ignoreRef.current) {
+        ignoreRef.current = shouldIgnore;
+        window.toasty.setPetIgnore(shouldIgnore);
+      }
     };
     const onUp = () => { dragRef.current.dragging = false; };
     window.addEventListener("mousemove", onMove);
@@ -50,6 +114,18 @@ export default function PetPage() {
     const next = !minimized;
     setMinimized(next);
     window.toasty.setPetSize(next ? "dot" : "full");
+  };
+
+  // B3: called by Cat on each frame load; draws the sprite into the offscreen canvas
+  const handleFrameImg = (img: HTMLImageElement | null) => {
+    hasFrameRef.current = img !== null;
+    if (!img) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 72, 72);
+    ctx.drawImage(img, 0, 0, 72, 72);
   };
 
   const handleCatClick = () => {
@@ -115,6 +191,7 @@ export default function PetPage() {
           <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
             {hovered && (
               <div
+                data-min-btn="1"
                 onClick={handleMinimize}
                 style={{
                   position: "absolute", top: -2, right: -2,
@@ -135,6 +212,7 @@ export default function PetPage() {
               state={catState}
               size={72}
               onClick={handleCatClick}
+              onFrameImg={handleFrameImg}
             />
           </div>
         </div>

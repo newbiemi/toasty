@@ -12,37 +12,43 @@ reminds you of deadlines, chats via Ollama, and lets you capture thoughts by cli
 - **Shell**: Electron (via Nextron) — main process owns all native concerns
 - **Renderer**: Next.js 14 (Pages Router), React 18, TypeScript — inline-style approach kept
 - **Storage**: `better-sqlite3` in Electron main process (`%APPDATA%/Roaming/toasty/toasty.db`)
-- **AI**: Ollama HTTP (`localhost:11434`), default model `llama3.2:3b`
+- **AI**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:3b`, changeable in-app)
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
-## Project Structure (Phase 3 — live)
+## Project Structure (Phase 5 — live)
 ```
 main/
   background.ts       # Electron app lifecycle + IPC handler registration + ambient state tick
   db.ts               # better-sqlite3 CRUD (listTasks, saveTask, deleteTask, clearDone)
-  ai.ts               # Ollama HTTP caller (format:"json", AbortController timeout, lean prompt)
-  settings.ts         # ToastySettings read/write (JSON in userData/settings.json); includes opacity, openAtLogin
+  ai.ts               # Ollama HTTP caller (format:"json", AbortController timeout, full-field parse prompt);
+                      # exports parseTasks, adjustTask, checkOllama, listModels
+  settings.ts         # ToastySettings read/write (JSON in userData/settings.json); model field is live
   windows.ts          # createMainWindow (frameless, alwaysOnTop, setOpacity), createPetWindow,
                       # createCaptureWindow, setupTray (with auto-launch toggle), toggleMode,
                       # pushCatState, minimizeMain, hideMain, setMainOpacity, applyAutoLaunch
   preload.ts          # contextBridge — exposes window.toasty.*
+scripts/
+  migrate-from-supabase.js  # One-time data import: Supabase tasks → toasty.db (run via npm run migrate)
+  migrate.env.example       # Credential template (copy → scripts/migrate.env, gitignored)
 renderer/
+  lib/
+    taskFromParsed.ts # Shared helper: safeDate, safeTime, buildTaskFromParsed — used by both
+                      # capture.tsx and TaskDashboard.tsx; normalises all AI-parsed task fields
   pages/
     _document.tsx     # Global dark theme CSS (no Google Fonts — fully offline)
     _app.tsx          # Minimal Next.js App wrapper
     index.tsx         # Dashboard (renders TaskDashboard)
     pet.tsx           # Transparent pet-overlay; single-click→capture, double-click→dashboard
-    capture.tsx       # NEW: slim frameless quick-capture box — paste task, auto-close after add
+    capture.tsx       # Slim frameless quick-capture box — paste task, auto-close after add
   components/
-    TaskDashboard.tsx # Full UI: custom drag bar, opacity slider, settings panel (auto-launch),
-                      # kanban with click-to-edit cards, TaskModal (all fields + AI-adjust),
-                      # visible parse-fail indicator
+    TaskDashboard.tsx # Full UI: custom drag bar, opacity slider, settings panel (auto-launch +
+                      # model selector), kanban with click-to-edit cards, TaskModal (all fields +
+                      # AI-adjust), visible parse-fail indicator
     Cat.tsx           # Sprite animator; emoji fallback if PNG 404s; state→frames→fps
   types/
-    task.ts           # Task, Subtask, ParsedTask, AdjustedTask interfaces
-    electron.d.ts     # window.toasty type declaration (minimize, closeWindow, setOpacity,
-                      # openCapture, closeCapture, setAutoLaunch)
+    task.ts           # Task, Subtask, ParsedTask (includes dueTime), AdjustedTask interfaces
+    electron.d.ts     # window.toasty type declaration; includes listModels()
   public/cat/
     PROMPTS.md        # nano-banana-pro sprite prompts (idle/thinking/alert/happy/sleep)
     idle/             # idle_01.png … idle_04.png (drop here)
@@ -59,11 +65,11 @@ package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-bui
 
 ## IPC Surface (`window.toasty`)
 `listTasks()` · `saveTask(task)` · `deleteTask(id)` · `clearDone()` ·
-`parse(text)` · `adjust(task, instruction)` ·
+`parse(text)` · `adjust(task, instruction)` · `listModels()→string[]` ·
 `getSettings()` · `setSettings(patch)` · `toggleMode()` · `onCatState(cb)→unsub` ·
 `minimize()` · `closeWindow()` · `setOpacity(v)` ·
 `openCapture()` · `closeCapture()` · `setAutoLaunch(enabled)` ·
-`getPetPosition()→{x,y}` · `movePet(x,y)` · `onReminder(cb)→unsub`
+`getPetPosition()→{x,y}` · `movePet(x,y)` · `setPetIgnore(bool)` · `onReminder(cb)→unsub` · `checkOllama()`
 
 ## Key Design Decisions (updated Phase 3)
 - **Per-mutation saves** — every state change immediately persists. No debounce/batch.
@@ -105,6 +111,8 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 - **Phase 2** ✓ — Pixel cat + pet-overlay / normal-window toggle
 - **Phase 3** ✓ — Frameless+transparent window · edit modal (all fields + AI-adjust) · quick-capture · lean parse prompt · packaged .exe + launch-on-startup
 - **Phase 4** ✓ — Draggable cat (IPC-based) · dueTime field + reminder tick · subtask generation fix · reminder banner in dashboard
+- **Phase 5** ✓ — Full-field parser (dueTime/subtasks/startDate/notes/links at capture time) · Settings model selector (live model switching) · listModels IPC · shared taskFromParsed helper · Supabase→SQLite one-time import script (`npm run migrate`)
+- **Phase 6** ✓ — Pet window size-lock (fixes DPI drift on 125%/150% scaling) · transparent corner click-through (per-pixel alpha via offscreen canvas + `setIgnoreMouseEvents(true,{forward:true})`)
 
 ## Dev Commands
 ```bash
@@ -113,6 +121,15 @@ npm run build    # nextron build — static export + electron-builder
 npm run rebuild  # electron-builder install-app-deps — rebuild native modules for Electron ABI
 ```
 
+## Data Import (one-time)
+To pull existing tasks out of a Supabase project and into the local `toasty.db`:
+1. Quit Toasty (tray → Quit).
+2. Copy `scripts/migrate.env.example` → `scripts/migrate.env`; fill in `SUPABASE_URL` and `SUPABASE_KEY`.
+3. Run `npm run migrate` — outputs the resolved DB path, rows fetched, rows upserted.
+4. Launch Toasty normally. Imported UUIDs coexist with local `t001`-style ids.
+- Idempotent: re-running is safe (UPSERT on id).
+- Why `electron scripts/...` not bare `node`: `better-sqlite3` is rebuilt for Electron's Node ABI; running under system Node hits `ERR_DLOPEN_FAILED`. The script also uses `app.getPath("userData")` to find the exact same DB file the live app uses.
+
 ## Known Issues / Notes
 - **Multiple dev instances**: `Get-Process node,electron | Stop-Process` to clear all processes
 - **Port 8888**: Nextron's default renderer dev port; `background.ts` hardcodes `localhost:8888` for dev
@@ -120,3 +137,5 @@ npm run rebuild  # electron-builder install-app-deps — rebuild native modules 
 - **`100vw/100vh` in transparent Electron windows** — resolves to full monitor dimensions on Windows, not the window dimensions. Never use for sizing transparent windows; use explicit pixels or `100%` with a properly constrained parent.
 - **`window.screenLeft/Top` unreliable** — in transparent Electron windows under Windows DPI scaling. Always use `getPetPosition()` IPC (main process `petWin.getPosition()`) for reliable coordinates.
 - **Subtask AI format** — `adjustTask` prompt specifies `[{"text":"...","done":false}]`, but the model may still return `string[]`. `mergeAdjusted()` in `TaskDashboard.tsx` normalizes both shapes.
+- **Pet window size-lock** — `createPetWindow` calls `setMinimumSize==setMaximumSize` after creation; `setPetSize` uses the sequence `setMinimumSize(0,0) → setMaximumSize(dim) → setSize(dim) → setMinimumSize(dim)` (releasing the floor first avoids a transient `min > max` on the 34→88 restore path); `movePetWindow` uses `setBounds({x,y,w,h})` instead of `setPosition` to re-assert canonical size every drag tick. Required because `transparent:true` + repeated `setPosition` under Windows 125%/150% scaling accumulates DIP rounding drift and grows the window bounding box.
+- **Pet corner click-through** — pet window defaults to interactive (`ignore=false`). On each `mousemove` in `pet.tsx`, per-pixel alpha is sampled: cursor position is mapped into the 72×72 sprite box (8px margin inside the 88×88 window), the current frame is drawn into an offscreen canvas via `Cat`'s `onFrameImg` callback, and `getImageData(x,y,1,1).data[3] < 10` flips the window to `setIgnoreMouseEvents(true, {forward:true})`. Flipping back to interactive happens when the cursor re-enters an opaque pixel, the minimize button (`[data-min-btn]`), or during a drag. Default-interactive (not default-ignore) prevents a race where a fast click on the cat passes through to the app behind before the IPC round-trip completes.

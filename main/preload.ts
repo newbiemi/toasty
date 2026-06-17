@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("toasty", {
   parse: (text: string) => ipcRenderer.invoke("ai:parse", text),
   adjust: (taskJSON: string, instruction: string) =>
     ipcRenderer.invoke("ai:adjust", taskJSON, instruction),
+  listModels: () => ipcRenderer.invoke("ai:models"),
 
   // ── Settings + Mode ──
   getSettings: () => ipcRenderer.invoke("settings:get"),
@@ -51,6 +52,7 @@ contextBridge.exposeInMainWorld("toasty", {
   // ── Pet drag ──
   getPetPosition: () => ipcRenderer.invoke("window:getPetPosition"),
   movePet: (x: number, y: number) => ipcRenderer.invoke("window:movePet", x, y),
+  setPetIgnore: (ignore: boolean) => ipcRenderer.invoke("window:setPetIgnore", ignore),
 
   // ── Reminders ──
   onReminder: (cb: (tasks: any[]) => void) => {

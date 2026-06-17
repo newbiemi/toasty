@@ -15,9 +15,10 @@ interface CatProps {
   size?: number;
   style?: React.CSSProperties;
   onClick?: () => void;
+  onFrameImg?: (img: HTMLImageElement | null) => void;
 }
 
-export default function Cat({ state, size = 96, style, onClick }: CatProps) {
+export default function Cat({ state, size = 96, style, onClick, onFrameImg }: CatProps) {
   const [frame, setFrame] = useState(1);
   const [fallback, setFallback] = useState(false);
 
@@ -57,7 +58,8 @@ export default function Cat({ state, size = 96, style, onClick }: CatProps) {
       alt={state}
       draggable={false}
       onClick={onClick}
-      onError={() => setFallback(true)}
+      onLoad={(e) => onFrameImg?.(e.currentTarget as HTMLImageElement)}
+      onError={() => { setFallback(true); onFrameImg?.(null); }}
       style={{
         imageRendering: "pixelated",
         cursor: onClick ? "pointer" : "default",
