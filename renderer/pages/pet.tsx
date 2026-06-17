@@ -74,6 +74,7 @@ export default function PetPage() {
           html, body {
             background: transparent !important;
             margin: 0; padding: 0; overflow: hidden;
+            width: 88px; height: 88px;
           }
         `}</style>
       </Head>
@@ -104,9 +105,10 @@ export default function PetPage() {
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           style={{
-            width: "100vw", height: "100vh",
+            width: 88, height: 88,  // matches PET_FULL in windows.ts; 100vw/100vh = monitor dims in transparent windows
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "grab",
+            overflow: "hidden",
           }}
         >
           {/* Wrapper sized to the cat — keeps minimize button anchored to the sprite */}
