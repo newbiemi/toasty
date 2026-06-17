@@ -45,6 +45,7 @@ interface ToastyAPI {
   onOllamaStatus: (cb: (status: "running" | "offline") => void) => () => void;
   checkOllama: () => Promise<"running" | "offline">;
   // Pet drag
+  getPetPosition: () => Promise<{ x: number; y: number }>;
   movePet: (x: number, y: number) => Promise<void>;
   // Reminders
   onReminder: (cb: (tasks: any[]) => void) => () => void;

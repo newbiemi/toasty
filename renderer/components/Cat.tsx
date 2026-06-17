@@ -55,11 +55,13 @@ export default function Cat({ state, size = 96, style, onClick }: CatProps) {
       width={size}
       height={size}
       alt={state}
+      draggable={false}
       onClick={onClick}
       onError={() => setFallback(true)}
       style={{
         imageRendering: "pixelated",
         cursor: onClick ? "pointer" : "default",
+        userSelect: "none",
         ...style,
       }}
     />

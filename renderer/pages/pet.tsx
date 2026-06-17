@@ -32,13 +32,16 @@ export default function PetPage() {
     };
   }, []);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = async (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    e.preventDefault(); // prevent browser native image drag-and-drop
+    // Get position from main process — window.screenLeft/Top is unreliable in
+    // transparent Electron windows under Windows DPI scaling
+    const pos = await window.toasty.getPetPosition();
     dragRef.current = {
       dragging: true, moved: false,
       startX: e.screenX, startY: e.screenY,
-      // window.screenLeft/screenTop give the current window position without an IPC call
-      winX: window.screenLeft, winY: window.screenTop,
+      winX: pos.x, winY: pos.y,
     };
   };
 
@@ -103,34 +106,35 @@ export default function PetPage() {
           style={{
             width: "100vw", height: "100vh",
             display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative", cursor: "grab",
+            cursor: "grab",
           }}
         >
-          {/* Minimize pill — appears on hover */}
-          {hovered && (
-            <div
-              onClick={handleMinimize}
-              style={{
-                position: "absolute", top: 2, right: 2,
-                width: 18, height: 12,
-                background: "#e8943b",
-                border: "2px solid #5a3e2b",
-                borderRadius: 2,
-                cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 8, color: "#5a3e2b", fontWeight: 700,
-                userSelect: "none",
-              }}
-            >
-              –
-            </div>
-          )}
-
-          <Cat
-            state={catState}
-            size={72}
-            onClick={handleCatClick}
-          />
+          {/* Wrapper sized to the cat — keeps minimize button anchored to the sprite */}
+          <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
+            {hovered && (
+              <div
+                onClick={handleMinimize}
+                style={{
+                  position: "absolute", top: -2, right: -2,
+                  width: 20, height: 14,
+                  background: "#e8943b",
+                  border: "2px solid #5a3e2b",
+                  borderRadius: 3,
+                  cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, lineHeight: 1, color: "#fff", fontWeight: 900,
+                  userSelect: "none",
+                } as React.CSSProperties}
+              >
+                _
+              </div>
+            )}
+            <Cat
+              state={catState}
+              size={72}
+              onClick={handleCatClick}
+            />
+          </div>
         </div>
       )}
     </>

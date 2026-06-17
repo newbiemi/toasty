@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld("toasty", {
   checkOllama: () => ipcRenderer.invoke("ollama:check"),
 
   // ── Pet drag ──
+  getPetPosition: () => ipcRenderer.invoke("window:getPetPosition"),
   movePet: (x: number, y: number) => ipcRenderer.invoke("window:movePet", x, y),
 
   // ── Reminders ──

@@ -89,12 +89,14 @@ export default function CapturePage() {
       </Head>
 
       <div style={{
-        width: "100vw", height: "100vh",
+        width: "100%", height: 52,
         display: "flex", alignItems: "center",
         background: C.panel,
         border: `3px solid ${C.border}`,
         padding: "0 6px",
         gap: 0,
+        boxSizing: "border-box",
+        overflow: "hidden",
       }}>
         <span style={{
           fontFamily: "'Press Start 2P', monospace",

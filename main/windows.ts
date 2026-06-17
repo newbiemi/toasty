@@ -80,9 +80,10 @@ export async function openCaptureWindow(): Promise<void> {
     return;
   }
   const s = getSettings();
-  // Position capture box just to the right of the cat, or near centre-screen
-  const catX = s.catX ?? 50;
-  const catY = s.catY ?? 50;
+  // Use live petWin position so capture always appears next to the dragged cat
+  const [catX, catY] = (petWin && !petWin.isDestroyed())
+    ? petWin.getPosition()
+    : [s.catX ?? 50, s.catY ?? 50];
   captureWin = new BrowserWindow({
     x: catX + PET_FULL + 8,
     y: catY,
@@ -215,10 +216,22 @@ export function setSkipTaskbar(value: boolean) {
   if (mainWin && !mainWin.isDestroyed()) mainWin.setSkipTaskbar(value);
 }
 
+export function getPetPosition(): { x: number; y: number } {
+  if (petWin && !petWin.isDestroyed()) {
+    const [x, y] = petWin.getPosition();
+    return { x, y };
+  }
+  const s = getSettings();
+  return { x: s.catX, y: s.catY };
+}
+
 export function movePetWindow(x: number, y: number) {
-  const rx = Math.round(x), ry = Math.round(y);
-  setSettings({ catX: rx, catY: ry });
-  if (petWin && !petWin.isDestroyed()) petWin.setPosition(rx, ry);
+  const { workAreaSize } = require("electron").screen.getPrimaryDisplay();
+  // Clamp: keep cat at least partially on screen
+  const cx = Math.round(Math.min(Math.max(x, -PET_FULL / 2), workAreaSize.width - PET_FULL / 2));
+  const cy = Math.round(Math.min(Math.max(y, 0), workAreaSize.height - PET_FULL / 2));
+  setSettings({ catX: cx, catY: cy });
+  if (petWin && !petWin.isDestroyed()) petWin.setPosition(cx, cy);
 }
 
 export function pushReminder(tasks: any[]) {

@@ -8,7 +8,7 @@ import {
   minimizeMain, hideMain, setMainOpacity,
   openCaptureWindow, closeCaptureWindow,
   applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
-  movePetWindow, pushReminder,
+  movePetWindow, getPetPosition, pushReminder,
 } from "./windows";
 
 // ─── IPC: DB ──────────────────────────────────
@@ -60,6 +60,7 @@ ipcMain.handle("window:setAutoLaunch", (_e, enabled: boolean) => {
 ipcMain.handle("window:setSkipTaskbar", (_e, value: boolean) => setSkipTaskbar(value));
 
 // ─── IPC: Pet drag ───────────────────────────
+ipcMain.handle("window:getPetPosition", () => getPetPosition());
 ipcMain.handle("window:movePet", (_e, x: number, y: number) => movePetWindow(x, y));
 
 // ─── IPC: Ollama status ───────────────────────

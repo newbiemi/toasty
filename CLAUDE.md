@@ -63,7 +63,7 @@ package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-bui
 `getSettings()` · `setSettings(patch)` · `toggleMode()` · `onCatState(cb)→unsub` ·
 `minimize()` · `closeWindow()` · `setOpacity(v)` ·
 `openCapture()` · `closeCapture()` · `setAutoLaunch(enabled)` ·
-_(Phase 4: `chat(messages)` · `onReminder(cb)`)_
+`getPetPosition()→{x,y}` · `movePet(x,y)` · `onReminder(cb)→unsub`
 
 ## Key Design Decisions (updated Phase 3)
 - **Per-mutation saves** — every state change immediately persists. No debounce/batch.
@@ -76,7 +76,7 @@ _(Phase 4: `chat(messages)` · `onReminder(cb)`)_
 - **Tray-app lifecycle** — `window-all-closed` is a no-op; app only quits via tray context menu "Quit Toasty".
 - **Cat state machine** — driven by `pushCatState(state)` from `main/windows.ts`. AI calls: thinking→idle. saveTask: happy→idle (2s). Ambient tick (60s): 22:00-06:00 or quietHours → sleep, else idle.
 - **Sprite drop pattern** — `renderer/public/cat/<state>/<state>_01.png … _04.png`. Cat.tsx detects first-frame 404 via `onError` and switches to emoji fallback; no app restart needed once PNGs are dropped.
-- **Pet window drag** — `WebkitAppRegion:"drag"` on outer div; `"no-drag"` on the cat sprite so click events reach the `<img>` onClick handler.
+- **Pet window drag (IPC-based)** — `WebkitAppRegion:"drag"` is NOT used on the pet window. Instead, `handleMouseDown` async-calls `getPetPosition()` IPC (reliable main-process coordinates), then tracks delta via global `mousemove`/`mouseup` listeners and calls `movePet(x, y)` IPC on each move. `WebkitAppRegion` swallows clicks; IPC drag lets click events reach the cat sprite. `window.screenLeft/Top` is unreliable under Windows DPI scaling in transparent windows — always use `getPetPosition()` for the base coordinate.
 - **Single vs double click on cat** — 250ms debounce timer: single-click → `openCapture()`; double-click clears the timer and calls `toggleMode()` (dashboard). Tradeoff: 250ms delay on the primary action. If sluggish, drop to single-click=capture + "Open dashboard" link inside the capture box.
 - **Frameless main window** — `frame:false` in `createMainWindow`. OS title bar removed; custom drag bar in the renderer uses `WebkitAppRegion:"drag"` with `"no-drag"` on every button/input.
 - **Clipboard accelerators** — do NOT use `Menu.setApplicationMenu(null)`. Set a menu with `{role:"editMenu"}` only; renders nothing visible in a frameless window but keeps Ctrl+C/V/X/A alive in inputs.
@@ -97,14 +97,14 @@ _(Phase 4: `chat(messages)` · `onReminder(cb)`)_
 ## SQLite Table: `tasks`
 Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapping needed):
 `id TEXT PK`, `title TEXT`, `subtasks TEXT` (JSON), `priority TEXT`, `status TEXT`,
-`startDate TEXT`, `dueDate TEXT`, `category TEXT`, `notes TEXT`, `links TEXT` (JSON),
+`startDate TEXT`, `dueDate TEXT`, `dueTime TEXT`, `category TEXT`, `notes TEXT`, `links TEXT` (JSON),
 `sortOrder INTEGER`, `createdAt TEXT`, `updatedAt TEXT`.
 
 ## Phases
 - **Phase 1** ✓ — Nextron shell + SQLite (dashboard works fully local, no Supabase)
 - **Phase 2** ✓ — Pixel cat + pet-overlay / normal-window toggle
 - **Phase 3** ✓ — Frameless+transparent window · edit modal (all fields + AI-adjust) · quick-capture · lean parse prompt · packaged .exe + launch-on-startup
-- **Phase 4** — Chat + reminders
+- **Phase 4** ✓ — Draggable cat (IPC-based) · dueTime field + reminder tick · subtask generation fix · reminder banner in dashboard
 
 ## Dev Commands
 ```bash
@@ -117,3 +117,6 @@ npm run rebuild  # electron-builder install-app-deps — rebuild native modules 
 - **Multiple dev instances**: `Get-Process node,electron | Stop-Process` to clear all processes
 - **Port 8888**: Nextron's default renderer dev port; `background.ts` hardcodes `localhost:8888` for dev
 - **Ollama parse quality**: verify early with 5+ varied inputs; `format:"json"` is the main guard
+- **`100vw/100vh` in transparent Electron windows** — resolves to full monitor dimensions on Windows, not the window dimensions. Never use for sizing transparent windows; use explicit pixels or `100%` with a properly constrained parent.
+- **`window.screenLeft/Top` unreliable** — in transparent Electron windows under Windows DPI scaling. Always use `getPetPosition()` IPC (main process `petWin.getPosition()`) for reliable coordinates.
+- **Subtask AI format** — `adjustTask` prompt specifies `[{"text":"...","done":false}]`, but the model may still return `string[]`. `mergeAdjusted()` in `TaskDashboard.tsx` normalizes both shapes.
