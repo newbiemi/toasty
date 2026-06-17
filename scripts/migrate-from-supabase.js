@@ -78,6 +78,9 @@ function mapRow(row) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
+// Force userData to match the production app path (%APPDATA%\toasty\)
+// Without this, bare `electron script.js` defaults to %APPDATA%\Electron\
+app.setName("toasty");
 app.whenReady().then(async () => {
   const env = loadEnv();
   const SUPABASE_URL   = env.SUPABASE_URL;
