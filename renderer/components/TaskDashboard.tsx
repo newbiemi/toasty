@@ -503,6 +503,7 @@ export default function TaskDashboard() {
   const [reminderTasks, setReminderTasks] = useState<any[]>([]);
   const [model, setModel] = useState("llama3.2:3b");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [appVersion, setAppVersion] = useState("");
 
   useEffect(() => {
     window.toasty.listTasks().then((t) => { setTasks(t); setLoaded(true); });
@@ -521,6 +522,7 @@ export default function TaskDashboard() {
     });
     // Populate model datalist from Ollama
     window.toasty.listModels().then(setAvailableModels);
+    window.toasty.getVersion().then(setAppVersion);
     // Initial check — main process pushes after 2s but do an eager one too
     window.toasty.checkOllama().then((s) => setOllamaStatus(s));
     return () => { unsubCat(); unsubOllama(); unsubReminder(); };
@@ -743,6 +745,11 @@ export default function TaskDashboard() {
           <span style={{ color: C.muted }}>
             (opacity slider dims Toasty too — find a sweet spot)
           </span>
+          {appVersion && (
+            <span style={{ color: C.muted, marginLeft: "auto" }}>
+              v{appVersion}
+            </span>
+          )}
         </div>
       )}
 

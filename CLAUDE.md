@@ -12,7 +12,7 @@ reminds you of deadlines, chats via Ollama, and lets you capture thoughts by cli
 - **Shell**: Electron (via Nextron) — main process owns all native concerns
 - **Renderer**: Next.js 14 (Pages Router), React 18, TypeScript — inline-style approach kept
 - **Storage**: `better-sqlite3` in Electron main process (`%APPDATA%/Roaming/toasty/toasty.db`)
-- **AI**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:3b`, changeable in-app)
+- **AI**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:1b`, changeable in-app)
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
@@ -78,9 +78,12 @@ package.json          # Nextron, electron@30, better-sqlite3@9.6.0, electron-bui
 - **`dangerouslySetInnerHTML` in `_document.tsx`** — avoids Next.js hydration mismatch; do not revert to `<style>` tags.
 - **`better-sqlite3` needs ABI rebuild** — install with `npm install --ignore-scripts`, then `npm run rebuild` (`electron-builder install-app-deps`). This downloads the prebuilt binary for Electron's Node ABI. The `postinstall` script was renamed to `rebuild` to prevent system Node collision.
 - **`getDB()` deferred path** — `app.getPath("userData")` is called inside `getDB()`, not at module top-level, to avoid running before `app:ready`.
+- **Ollama resource safety (Phase 9)** — `main/ai.ts` enforces three guards on every inference call: (1) pre-flight `os.freemem()` check (refuses if < 2 GB free); (2) single-flight lock (`inFlight` promise) — concurrent calls from separate windows (parse, chat, adjust) are rejected immediately with a friendly message, never queued; (3) `keep_alive:0` + `num_predict:512` + `num_ctx:2048` on every request body — `num_predict` is the real bound on the acute CPU-decode window that outlives the `AbortController` abort; `keep_alive:0` unloads the model promptly after each call. Default model changed to `llama3.2:1b`. All four values are named constants in `ai.ts` (easy to tune). Note: `os.freemem()` on Windows reports *free*, not *available* — the guard errs cautious and will occasionally refuse when the machine could have coped.
 - **`nextId`/`nextIds` are sync** — computed from in-memory task array; no DB round-trip needed.
 - **Ollama `format:"json"`** — primary guard for structured parse output. Defensive fence-strip + JSON-slice as backstop in `main/ai.ts:extractJSON()`.
 - **Tray-app lifecycle** — `window-all-closed` is a no-op; app only quits via tray context menu "Quit Toasty".
+- **Single-instance lock** — `app.requestSingleInstanceLock()` at the top of `background.ts` guards the entire lifecycle. A second launch quits immediately; the `second-instance` event fires on the first instance and calls `focusExisting()` (`windows.ts`) to bring it to front. The lock is keyed on app name (`"toasty"`) so dev and prod builds share the lock — gate with `if (app.isPackaged)` if you need them to coexist during development.
+- **`app.setName("toasty")` in `background.ts`** — called once before any IPC registration so both `npm run dev` and the packaged app resolve userData to `%APPDATA%\Roaming\toasty\` and share the same `toasty.db`. (Previously only the migrate script called this, causing dev runs to write to `%APPDATA%\Roaming\Electron\` — a separate DB silo.)
 - **Cat state machine** — driven by `pushCatState(state)` from `main/windows.ts`. AI calls: thinking→idle. saveTask: happy→idle (2s). Ambient tick (60s): 22:00-06:00 or quietHours → sleep, else idle.
 - **Sprite drop pattern** — `renderer/public/cat/<state>/<state>_01.png … _04.png`. Cat.tsx detects first-frame 404 via `onError` and switches to emoji fallback; no app restart needed once PNGs are dropped.
 - **Pet window drag (IPC-based)** — `WebkitAppRegion:"drag"` is NOT used on the pet window. Instead, `handleMouseDown` async-calls `getPetPosition()` IPC (reliable main-process coordinates), then tracks delta via global `mousemove`/`mouseup` listeners and calls `movePet(x, y)` IPC on each move. `WebkitAppRegion` swallows clicks; IPC drag lets click events reach the cat sprite. `window.screenLeft/Top` is unreliable under Windows DPI scaling in transparent windows — always use `getPetPosition()` for the base coordinate.
@@ -115,6 +118,8 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 - **Phase 5** ✓ — Full-field parser (dueTime/subtasks/startDate/notes/links at capture time) · Settings model selector (live model switching) · listModels IPC · shared taskFromParsed helper · Supabase→SQLite one-time import script (`npm run migrate`)
 - **Phase 6** ✓ — Pet window size-lock (fixes DPI drift on 125%/150% scaling) · transparent corner click-through (per-pixel alpha via offscreen canvas + `setIgnoreMouseEvents(true,{forward:true})`)
 - **Phase 7** ✓ — Global hotkey `Ctrl+Shift+T` → opens capture window · Chat with Toasty (floating 360×460 window, multi-turn `/api/chat`, task-aware system prompt, 💬 entry via capture box)
+- **Phase 8** ✓ — Single-instance lock (second launch focuses existing Toasty) · `app.setName("toasty")` unifies dev+prod DB path · version bump `0.1.0→0.2.0` · tray shows `Toasty vX.Y.Z` · settings panel footer shows version · NSIS upgrade config (`oneClick`, no data wipe)
+- **Phase 9** ✓ — Ollama resource safety: `llama3.2:1b` default · pre-flight free-RAM check (`os.freemem()` < 2 GB → friendly refuse) · single-flight lock (concurrent parse/chat/adjust rejected, not queued) · `keep_alive:0` + `num_predict:512` + `num_ctx:2048` on all request bodies · chat window full-rect work-area clamp (boxes can never be off-screen) · version bump `0.2.0→0.3.0`
 
 ## Dev Commands
 ```bash
@@ -133,7 +138,10 @@ To pull existing tasks out of a Supabase project and into the local `toasty.db`:
 - Why `electron scripts/...` not bare `node`: `better-sqlite3` is rebuilt for Electron's Node ABI; running under system Node hits `ERR_DLOPEN_FAILED`. The script also uses `app.getPath("userData")` to find the exact same DB file the live app uses.
 
 ## Known Issues / Notes
-- **Multiple dev instances**: `Get-Process node,electron | Stop-Process` to clear all processes
+- **Multiple dev instances**: `Get-Process node,electron | Stop-Process` to clear all processes (the single-instance lock applies here too — dev + packaged share the lock since both use `app.setName("toasty")`. Run one at a time, or gate the lock with `if (app.isPackaged)` to allow them to coexist.)
+- **Ollama on CPU-only hardware**: CPU inference can exhaust RAM + pin cores → OS sluggishness/paging. The Phase 9 guards (`assertEnoughMemory`, `inFlight` lock, `num_predict`, `num_ctx`, `keep_alive:0`) mitigate this but do not eliminate it — if a call still freezes, the `AbortController` timeout cancels the HTTP connection but Ollama continues generating internally until completion. `keep_alive:0` unloads the model after that completes. Running `ollama stop <model>` from a terminal is the manual escape hatch.
+- **`os.freemem()` vs available RAM**: on Windows, `os.freemem()` reports *free* bytes, not *available* (Windows keeps RAM hoarded for disk cache). The 2 GB threshold in `MIN_FREE_BYTES` will therefore occasionally refuse AI when the machine could actually cope — this is intentional; raise the threshold if the refusals are too rare, lower it only if too frequent.
+- **Existing `settings.json` with `model:"llama3.2:3b"`**: the Phase 9 default change (`llama3.2:1b`) only applies to fresh settings. Users with an existing `settings.json` keep their saved model; they can switch via the Settings model selector. Pull 1b first: `ollama pull llama3.2:1b`.
 - **Port 8888**: Nextron's default renderer dev port; `background.ts` hardcodes `localhost:8888` for dev
 - **Ollama parse quality**: verify early with 5+ varied inputs; `format:"json"` is the main guard
 - **`100vw/100vh` in transparent Electron windows** — resolves to full monitor dimensions on Windows, not the window dimensions. Never use for sizing transparent windows; use explicit pixels or `100%` with a properly constrained parent.

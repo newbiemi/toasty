@@ -1,12 +1,32 @@
+import * as os from "os";
 import { getSettings } from "./settings";
 import { listTasks } from "./db";
 
 const OLLAMA_BASE = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "llama3.2:1b";
 // Generous timeout: first parse after boot may hit a cold Ollama (daemon not loaded yet)
 const PARSE_TIMEOUT_MS = 30_000;
 const ADJUST_TIMEOUT_MS = 45_000;
 const CHAT_TIMEOUT_MS = 60_000;
+// ── Resource-safety constants (Phase 9) ─────────────────────────────────────
+// MIN_FREE_BYTES: refuse any Ollama call when os.freemem() is below this.
+// Note: os.freemem() on Windows reports *free*, not *available* (cache counts
+// as used) — so this guard errs cautious. Raise to 3 GB if still risky.
+const MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+// KEEP_ALIVE: 0 unloads the model immediately after each response (hygiene —
+// prevents the 5-min default hold on RAM/CPU after the call completes).
+// Tradeoff: cold-load delay on every turn. Bump to "30s" if too slow.
+const KEEP_ALIVE = 0;
+// NUM_PREDICT_GEN: max tokens for /api/generate (parse, adjust). Must be large
+// enough for a full multi-task JSON array (~150 tokens/task); 512 can truncate
+// 4+ tasks and produce invalid JSON. 1024 is safe on 1b and still bounds the
+// CPU decode window to ~15-20s worst-case vs the 30/45s abort timeouts.
+const NUM_PREDICT_GEN = 1024;
+// NUM_PREDICT_CHAT: max tokens for /api/chat. A cut-off sentence degrades
+// gracefully (unlike truncated JSON), so a tighter cap is fine here.
+const NUM_PREDICT_CHAT = 512;
+// NUM_CTX: context-window token cap; shrinks the model's working-set footprint.
+const NUM_CTX = 2048;
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
@@ -39,6 +59,25 @@ function tomorrowStr() {
   return d.toISOString().split("T")[0];
 }
 
+// ── Resource guards ──────────────────────────────────────────────────────────
+
+// Pre-flight RAM check. Throws a user-friendly Error if memory is critically low.
+function assertEnoughMemory(): void {
+  const free = os.freemem();
+  if (free < MIN_FREE_BYTES) {
+    const freeMB = Math.round(free / 1024 / 1024);
+    throw new Error(
+      `Not enough RAM to run AI right now (${freeMB} MB free, need ~2 GB). ` +
+      `Close some apps and try again 🐾`
+    );
+  }
+}
+
+// Single-flight lock: only one Ollama call may run at a time across all entry
+// points (parse, chat, adjust). Concurrent calls are rejected immediately —
+// NOT queued — to avoid stacking long CPU jobs on low-RAM hardware.
+let inFlight: Promise<unknown> | null = null;
+
 function extractJSON(raw: string): string {
   let cleaned = raw.replace(/```json|```/g, "").trim();
   const arrStart = cleaned.indexOf("[");
@@ -66,7 +105,8 @@ async function callOllama(systemPrompt: string, userMessage: string, timeoutMs: 
         prompt: userMessage,
         format: "json",
         stream: false,
-        options: { temperature: 0.1 },
+        keep_alive: KEEP_ALIVE,
+        options: { temperature: 0.1, num_predict: NUM_PREDICT_GEN, num_ctx: NUM_CTX },
       }),
     });
     if (!res.ok) {
@@ -105,6 +145,8 @@ export async function listModels(): Promise<string[]> {
 }
 
 export async function parseTasks(text: string): Promise<any[]> {
+  assertEnoughMemory();
+  if (inFlight) throw new Error("Toasty is already thinking — give me a sec 🐾");
   // Strip conversational prefixes so the model isn't confused by greetings
   const cleaned = text.replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "").trim() || text;
 
@@ -134,17 +176,23 @@ LINKS: Extract only http:// or https:// URLs into links[]. Do not repeat URLs in
 
 Ignore greetings and filler words. If multiple tasks are described, return all in the array. If no task found, return [].`;
 
-  const raw = await callOllama(system, cleaned, PARSE_TIMEOUT_MS);
-  const result = JSON.parse(raw);
-  // llama3.2:3b sometimes returns a single object instead of an array — normalise
-  const arr = Array.isArray(result) ? result : (result && result.title ? [result] : []);
-  // Guard: if the model echoed the full input as the title, it failed — treat as empty
-  return arr.filter((t: any) => t.title && t.title.trim().length < cleaned.length * 0.8);
+  const p = (async () => {
+    const raw = await callOllama(system, cleaned, PARSE_TIMEOUT_MS);
+    const result = JSON.parse(raw);
+    // llama3.2 sometimes returns a single object instead of an array — normalise
+    const arr = Array.isArray(result) ? result : (result && result.title ? [result] : []);
+    // Guard: if the model echoed the full input as the title, it failed — treat as empty
+    return arr.filter((t: any) => t.title && t.title.trim().length < cleaned.length * 0.8);
+  })();
+  inFlight = p;
+  try { return await p; } finally { inFlight = null; }
 }
 
 export async function chat(
   messages: Array<{ role: "user" | "assistant"; content: string }>
 ): Promise<string> {
+  assertEnoughMemory();
+  if (inFlight) throw new Error("Toasty is already thinking — give me a sec 🐾");
   const model = getSettings().model || DEFAULT_MODEL;
 
   // Inject pending tasks so Toasty can answer "what do I have due today?" etc.
@@ -163,32 +211,39 @@ export async function chat(
 
   const system = `You are Toasty, a friendly pixel-cat companion who helps with tasks and productivity. Be warm, concise, and helpful. Today is ${todayStr()}.${taskContext}`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: system }, ...messages],
-        stream: false,
-        options: { temperature: 0.7 },
-      }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Ollama error ${res.status}: ${text}`);
+  const p = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: system }, ...messages],
+          stream: false,
+          keep_alive: KEEP_ALIVE,
+          options: { temperature: 0.7, num_predict: NUM_PREDICT_CHAT, num_ctx: NUM_CTX },
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Ollama error ${res.status}: ${text}`);
+      }
+      const data = await res.json();
+      return data.message?.content ?? "(no response)";
+    } finally {
+      clearTimeout(timer);
     }
-    const data = await res.json();
-    return data.message?.content ?? "(no response)";
-  } finally {
-    clearTimeout(timer);
-  }
+  })();
+  inFlight = p;
+  try { return await p; } finally { inFlight = null; }
 }
 
 export async function adjustTask(taskJSON: string, instruction: string): Promise<any> {
+  assertEnoughMemory();
+  if (inFlight) throw new Error("Toasty is already thinking — give me a sec 🐾");
   const system = `You are adjusting an existing task based on the user's instruction.
 Current task: ${taskJSON}
 Today is ${todayStr()}. Tomorrow is ${tomorrowStr()}.
@@ -205,6 +260,10 @@ Format if splitting: [{"title":"...", ...}, {"title":"...", ...}]
 
 Only change what the instruction asks for. Keep everything else intact.`;
 
-  const raw = await callOllama(system, instruction, ADJUST_TIMEOUT_MS);
-  return JSON.parse(raw);
+  const p = (async () => {
+    const raw = await callOllama(system, instruction, ADJUST_TIMEOUT_MS);
+    return JSON.parse(raw);
+  })();
+  inFlight = p;
+  try { return await p; } finally { inFlight = null; }
 }

@@ -1,6 +1,6 @@
 {
   "name": "toasty",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Local pixel-cat task companion — fully offline, Electron + Ollama",
   "private": true,
   "main": "app/background.js",
@@ -38,6 +38,11 @@
     ],
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
     }
   }
 }

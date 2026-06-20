@@ -55,6 +55,8 @@ interface ToastyAPI {
   setPetIgnore: (ignore: boolean) => Promise<void>;
   // Reminders
   onReminder: (cb: (tasks: any[]) => void) => () => void;
+  // App version
+  getVersion: () => Promise<string>;
 }
 
 declare global {

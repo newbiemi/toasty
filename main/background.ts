@@ -10,7 +10,11 @@ import {
   openChatWindow, closeChatWindow,
   applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
   movePetWindow, getPetPosition, pushReminder, setPetIgnoreMouse,
+  focusExisting,
 } from "./windows";
+
+// Unify dev + prod userData path so both write to %APPDATA%\Roaming\toasty\
+app.setName("toasty");
 
 // ─── IPC: DB ──────────────────────────────────
 ipcMain.handle("db:list", () => listTasks());
@@ -142,6 +146,7 @@ ipcMain.handle("window:setPetIgnore", (_e, ignore: boolean) => setPetIgnoreMouse
 // ─── IPC: Ollama status ───────────────────────
 ipcMain.handle("ollama:check", async () => checkOllama());
 ipcMain.handle("ai:models", () => listModels());
+ipcMain.handle("app:version", () => app.getVersion());
 
 // ─── Ambient state tick ───────────────────────
 function isInQuietHours(h: number, from: number, to: number): boolean {
@@ -182,31 +187,39 @@ function tickReminder() {
 }
 
 // ─── App Lifecycle ────────────────────────────
-app.on("ready", async () => {
-  setupTray();
-  const s = getSettings();
-  applyAutoLaunch();
-  if (s.mode === "pet") {
-    await createPetWindow();
-  } else {
-    await createMainWindow();
-  }
-  tickAmbient();
-  setInterval(tickAmbient, 60_000);
-  // Initial Ollama check after window loads, then every 30s
-  setTimeout(tickOllama, 2000);
-  setInterval(tickOllama, 30_000);
-  // Reminder tick every minute
-  setInterval(tickReminder, 60_000);
-  // Global capture hotkey — note: Ctrl+Shift+T is "reopen closed tab" in browsers;
-  // this steals it system-wide while Toasty runs.
-  const registered = globalShortcut.register("CommandOrControl+Shift+T", () => {
-    openCaptureWindow();
+// Single-instance lock: second launch focuses the existing Toasty instead of spawning a copy.
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => focusExisting());
+
+  app.on("ready", async () => {
+    setupTray();
+    const s = getSettings();
+    applyAutoLaunch();
+    if (s.mode === "pet") {
+      await createPetWindow();
+    } else {
+      await createMainWindow();
+    }
+    tickAmbient();
+    setInterval(tickAmbient, 60_000);
+    // Initial Ollama check after window loads, then every 30s
+    setTimeout(tickOllama, 2000);
+    setInterval(tickOllama, 30_000);
+    // Reminder tick every minute
+    setInterval(tickReminder, 60_000);
+    // Global capture hotkey — note: Ctrl+Shift+T is "reopen closed tab" in browsers;
+    // this steals it system-wide while Toasty runs.
+    const registered = globalShortcut.register("CommandOrControl+Shift+T", () => {
+      openCaptureWindow();
+    });
+    if (!registered) console.warn("[toasty] Ctrl+Shift+T hotkey already claimed by another app");
   });
-  if (!registered) console.warn("[toasty] Ctrl+Shift+T hotkey already claimed by another app");
-});
 
-app.on("will-quit", () => globalShortcut.unregisterAll());
+  app.on("will-quit", () => globalShortcut.unregisterAll());
 
-// Tray app — never quit on window-all-closed; only quit via tray menu
-app.on("window-all-closed", () => { /* intentionally empty */ });
+  // Tray app — never quit on window-all-closed; only quit via tray menu
+  app.on("window-all-closed", () => { /* intentionally empty */ });
+}

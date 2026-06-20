@@ -35,10 +35,13 @@ export default function ChatPage() {
     try {
       const { reply, added } = await window.toasty.chat(next);
       setMessages((prev) => [...prev, { role: "assistant", content: reply, tasksSaved: added.length }]);
-    } catch {
+    } catch (err: any) {
+      const msg = err?.message
+        ? `(${err.message})`
+        : "(Toasty is offline or timed out — check Ollama)";
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "(Toasty is offline or timed out — check Ollama)" },
+        { role: "assistant", content: msg },
       ]);
     }
     setLoading(false);

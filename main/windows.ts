@@ -128,10 +128,13 @@ export async function openChatWindow(): Promise<void> {
     ? petWin.getPosition()
     : [s.catX ?? 50, s.catY ?? 50];
   const W = 360, H = 460;
-  // Prefer right of cat; fall back to left if it would clip off-screen
+  // Prefer right of cat; fall back to left if it would clip off-screen.
+  // Clamp the full rect into the work area on both axes so a stale/off-screen
+  // catX (e.g. after DPI drift) can never put the box off-screen.
   const xRight = catX + PET_FULL + 8;
-  const x = Math.max(0, xRight + W <= workAreaSize.width ? xRight : catX - W - 8);
-  const y = Math.max(0, Math.min(catY, workAreaSize.height - H));
+  const xCandidate = xRight + W <= workAreaSize.width ? xRight : catX - W - 8;
+  const x = Math.min(Math.max(0, xCandidate), workAreaSize.width - W);
+  const y = Math.min(Math.max(0, catY), workAreaSize.height - H);
   chatWin = new BrowserWindow({
     x, y, width: W, height: H,
     frame: false, transparent: false,
@@ -167,6 +170,8 @@ function updateTrayMenu() {
   if (!tray) return;
   const s = getSettings();
   tray.setContextMenu(Menu.buildFromTemplate([
+    { label: `Toasty v${app.getVersion()}`, enabled: false },
+    { type: "separator" },
     {
       label: s.mode === "window" ? "Open Toasty" : "Switch to Window Mode",
       click: () => {
@@ -290,4 +295,19 @@ export function pushReminder(tasks: any[]) {
 export function setPetIgnoreMouse(ignore: boolean) {
   if (petWin && !petWin.isDestroyed())
     petWin.setIgnoreMouseEvents(ignore, { forward: true });
+}
+
+// ── Single-instance: focus whichever window is currently active ──
+export function focusExisting(): void {
+  const s = getSettings();
+  if (s.mode === "window" && mainWin && !mainWin.isDestroyed()) {
+    mainWin.show();
+    if (mainWin.isMinimized()) mainWin.restore();
+    mainWin.focus();
+  } else if (petWin && !petWin.isDestroyed()) {
+    petWin.show();
+    petWin.focus();
+    // Surface the capture box as a visible acknowledgement in pet mode
+    openCaptureWindow();
+  }
 }

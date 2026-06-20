@@ -65,4 +65,7 @@ contextBridge.exposeInMainWorld("toasty", {
     ipcRenderer.on("toasty:reminder", handler);
     return () => ipcRenderer.removeListener("toasty:reminder", handler);
   },
+
+  // ── App version ──
+  getVersion: () => ipcRenderer.invoke("app:version"),
 });
