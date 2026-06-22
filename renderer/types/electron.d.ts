@@ -12,6 +12,8 @@ interface ToastySettings {
   opacity: number;
   openAtLogin: boolean;
   skipTaskbar: boolean;
+  groqApiKey: string;
+  aiProvider: "groq" | "ollama";
 }
 
 interface ToastyAPI {

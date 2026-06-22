@@ -1,33 +1,47 @@
 # Toasty — Claude Reference
 
 ## What This Is
-**Toasty** is a fully-local, offline-first pixel-cat desktop companion for vibe-coding.
+**Toasty** is a cloud-first (with offline rule-based fallback) pixel-cat desktop companion for vibe-coding.
 It lives on-screen while you code: a comnyang-style animated cat that holds your tasks,
-reminds you of deadlines, chats via Ollama, and lets you capture thoughts by clicking it.
+reminds you of deadlines, chats via Groq (or Ollama), and lets you capture thoughts by clicking it.
+
+> Identity shift (Phase 10): originally "fully-local, offline-first" with Ollama on the hot path.
+> Redesigned to be cloud-first (Groq) with a deterministic rule parser as the offline fallback,
+> so task capture NEVER runs local LLM inference and can NEVER freeze the machine.
+> Ollama now serves the Chat window only — an explicit, user-initiated opt-in.
 
 > Transformed from the original `task-parser` Next.js web app (Supabase + cloud AI)
-> into an Electron desktop app with SQLite storage and a local LLM (Ollama).
+> into an Electron desktop app with SQLite storage.
 
-## Stack (Phase 1 — complete ✓)
+## Stack (Phase 10 — current)
 - **Shell**: Electron (via Nextron) — main process owns all native concerns
 - **Renderer**: Next.js 14 (Pages Router), React 18, TypeScript — inline-style approach kept
 - **Storage**: `better-sqlite3` in Electron main process (`%APPDATA%/Roaming/toasty/toasty.db`)
-- **AI**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:1b`, changeable in-app)
+- **AI (primary)**: Groq cloud API (`api.groq.com/openai/v1`, model `llama-3.1-8b-instant`); key stored in `settings.json`, entered via Settings panel; never shipped in the build
+- **AI (offline parse fallback)**: deterministic rule parser (`main/parseRules.ts`) — instant, zero CPU, never freezes
+- **AI (chat fallback)**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:1b`, changeable in-app); Phase 9 resource guards remain for this path
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
-## Project Structure (Phase 7 — live)
+## Project Structure (Phase 10 — current)
 ```
+build/
+  installer.nsh       # Custom NSIS uninstaller hook — deletes the Run registry entry on uninstall
 main/
   background.ts       # Electron app lifecycle + IPC handler registration + ambient state tick
   db.ts               # better-sqlite3 CRUD (listTasks, saveTask, deleteTask, clearDone)
-  ai.ts               # Ollama HTTP caller (format:"json", AbortController timeout, full-field parse prompt);
-                      # exports parseTasks, adjustTask, checkOllama, listModels
-  settings.ts         # ToastySettings read/write (JSON in userData/settings.json); model field is live
+  ai.ts               # AI routing seam: parseTasks→Groq/rules, chat→Groq/Ollama, adjustTask→Groq/passthrough
+                      # exports parseTasks, adjustTask, chat, checkOllama, listModels
+  aiShared.ts         # Shared helpers: extractJSON, normalizeParsed, validateParsed, getKnownCategories
+  dateUtils.ts        # Shared date helpers: todayStr, tomorrowStr, addDays, nextWeekday, safeDate, safeTime
+  parseRules.ts       # Deterministic rule parser — extracts date/time/priority/category/links via regex
+  settings.ts         # ToastySettings read/write (JSON in userData/settings.json); groqApiKey + aiProvider added
   windows.ts          # createMainWindow (frameless, alwaysOnTop, setOpacity), createPetWindow,
                       # createCaptureWindow, setupTray (with auto-launch toggle), toggleMode,
                       # pushCatState, minimizeMain, hideMain, setMainOpacity, applyAutoLaunch
   preload.ts          # contextBridge — exposes window.toasty.*
+  providers/
+    groq.ts           # Groq provider: groqParse, groqChat, groqAdjust, isGroqAvailable
 scripts/
   migrate-from-supabase.js  # One-time data import: Supabase tasks → toasty.db (run via npm run migrate)
   migrate.env.example       # Credential template (copy → scripts/migrate.env, gitignored)
@@ -120,6 +134,7 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 - **Phase 7** ✓ — Global hotkey `Ctrl+Shift+T` → opens capture window · Chat with Toasty (floating 360×460 window, multi-turn `/api/chat`, task-aware system prompt, 💬 entry via capture box)
 - **Phase 8** ✓ — Single-instance lock (second launch focuses existing Toasty) · `app.setName("toasty")` unifies dev+prod DB path · version bump `0.1.0→0.2.0` · tray shows `Toasty vX.Y.Z` · settings panel footer shows version · NSIS upgrade config (`oneClick`, no data wipe)
 - **Phase 9** ✓ — Ollama resource safety: `llama3.2:1b` default · pre-flight free-RAM check (`os.freemem()` < 2 GB → friendly refuse) · single-flight lock (concurrent parse/chat/adjust rejected, not queued) · `keep_alive:0` + `num_predict:512` + `num_ctx:2048` on all request bodies · chat window full-rect work-area clamp (boxes can never be off-screen) · version bump `0.2.0→0.3.0`
+- **Phase 10** ✓ — Stability rebuild: boot-error fix (NSIS `customUnInstall` removes Run entry on uninstall) · AI de-freeze (Ollama removed from parse/adjust hot path) · Groq cloud provider (`providers/groq.ts`) as primary AI for parse+chat+adjust · deterministic rule parser (`parseRules.ts`) as offline/no-key fallback for capture (instant, zero CPU, never freezes) · Groq anti-hallucination cross-check (rule parser validates dates/times/links against source text) · shared helpers extracted to `dateUtils.ts` + `aiShared.ts` · Groq key input in Settings panel · AI status indicator updated (GROQ chip when key set, OLLAMA when fallback) · version bump `0.3.0→0.4.0`
 
 ## Dev Commands
 ```bash
@@ -136,6 +151,14 @@ To pull existing tasks out of a Supabase project and into the local `toasty.db`:
 4. Launch Toasty normally. Imported UUIDs coexist with local `t001`-style ids.
 - Idempotent: re-running is safe (UPSERT on id).
 - Why `electron scripts/...` not bare `node`: `better-sqlite3` is rebuilt for Electron's Node ABI; running under system Node hits `ERR_DLOPEN_FAILED`. The script also uses `app.getPath("userData")` to find the exact same DB file the live app uses.
+
+## Key Design Decisions — Phase 10
+
+- **Ollama is NOT on the parse/adjust hot path** — Removed to prevent CPU-inference freeze on non-GPU hardware. `AbortController` only cancels the HTTP connection; Ollama keeps decoding internally and can pin cores until done. Rule parser cannot freeze.
+- **Rule parser as authoritative cross-check** — `groqParse` also runs `ruleParse` on the same input and uses its extracted dates/times/links as ground truth; any Groq-invented value not found by the rule parser is nulled out before the task is saved.
+- **Groq `response_format: json_object`** differs from Ollama's `format:"json"`. Groq returns a JSON object (not array) — `groqParse` unwraps common wrapper keys (`tasks`, `data`, `items`) or falls back to treating the root as a single task.
+- **`aiProvider` setting** — `"groq"` (default) uses Groq → rules/pass-through. `"ollama"` forces Ollama for chat; parse always uses rules when Groq key absent. Changing to `"ollama"` re-enables the freeze risk intentionally.
+- **NSIS `customUnInstall` hook** — `build/installer.nsh` deletes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Toasty` on uninstall. Prevents orphaned startup entry pointing to deleted `.exe`. The orphaned entry must be cleaned manually on machines where the old installer ran: `Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name Toasty`
 
 ## Known Issues / Notes
 - **Multiple dev instances**: `Get-Process node,electron | Stop-Process` to clear all processes (the single-instance lock applies here too — dev + packaged share the lock since both use `app.setName("toasty")`. Run one at a time, or gate the lock with `if (app.isPackaged)` to allow them to coexist.)

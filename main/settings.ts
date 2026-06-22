@@ -14,6 +14,8 @@ export interface ToastySettings {
   opacity: number;        // 0.3–1.0, default 1.0
   openAtLogin: boolean;   // launch on OS startup
   skipTaskbar: boolean;   // hide from Windows taskbar
+  groqApiKey: string;     // Groq cloud API key (entered in Settings, never shipped)
+  aiProvider: "groq" | "ollama"; // preferred AI backend; "groq" = cloud-first
 }
 
 const DEFAULTS: ToastySettings = {
@@ -28,6 +30,8 @@ const DEFAULTS: ToastySettings = {
   opacity: 1.0,
   openAtLogin: false,
   skipTaskbar: false,
+  groqApiKey: "",
+  aiProvider: "groq",
 };
 
 let _cache: ToastySettings | null = null;

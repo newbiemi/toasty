@@ -504,6 +504,8 @@ export default function TaskDashboard() {
   const [model, setModel] = useState("llama3.2:3b");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState("");
+  const [groqApiKey, setGroqApiKey] = useState("");
+  const [groqKeyDraft, setGroqKeyDraft] = useState("");
 
   useEffect(() => {
     window.toasty.listTasks().then((t) => { setTasks(t); setLoaded(true); });
@@ -519,6 +521,9 @@ export default function TaskDashboard() {
       setOpenAtLogin(s.openAtLogin ?? false);
       setSkipTaskbarState(s.skipTaskbar ?? false);
       setModel(s.model ?? "llama3.2:3b");
+      const key = s.groqApiKey ?? "";
+      setGroqApiKey(key);
+      setGroqKeyDraft(key);
     });
     // Populate model datalist from Ollama
     window.toasty.listModels().then(setAvailableModels);
@@ -641,23 +646,39 @@ export default function TaskDashboard() {
           <span style={{ fontFamily: "var(--font-pixel)", fontSize: 9, color: C.muted, marginLeft: 2 }}>
             {counts.todo} todo · {counts.in_progress} doing · {counts.done} done
           </span>
-          {/* Ollama status indicator */}
-          <span
-            title={`Ollama: ${ollamaStatus}`}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 3,
-              fontFamily: "var(--font-pixel)", fontSize: 8,
-              color: ollamaStatus === "running" ? C.done : ollamaStatus === "offline" ? C.high : C.medium,
-              border: `1px solid ${ollamaStatus === "running" ? C.done : ollamaStatus === "offline" ? C.high : C.medium}`,
-              padding: "1px 5px", marginLeft: 4,
-            }}
-          >
-            <span style={{
-              width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
-              background: ollamaStatus === "running" ? C.done : ollamaStatus === "offline" ? C.high : C.medium,
-            }} />
-            {ollamaStatus === "running" ? "AI ON" : ollamaStatus === "offline" ? "AI OFF" : "AI..."}
-          </span>
+          {/* AI status indicator — Groq if key is set, else Ollama (chat fallback) */}
+          {groqApiKey ? (
+            <span
+              title="Groq AI active — task parse & chat via cloud"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontFamily: "var(--font-pixel)", fontSize: 8,
+                color: C.done,
+                border: `1px solid ${C.done}`,
+                padding: "1px 5px", marginLeft: 4,
+              }}
+            >
+              <span style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: C.done }} />
+              GROQ
+            </span>
+          ) : (
+            <span
+              title={`Ollama (chat fallback): ${ollamaStatus}`}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontFamily: "var(--font-pixel)", fontSize: 8,
+                color: ollamaStatus === "running" ? C.medium : C.muted,
+                border: `1px solid ${ollamaStatus === "running" ? C.medium : C.muted}`,
+                padding: "1px 5px", marginLeft: 4,
+              }}
+            >
+              <span style={{
+                width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+                background: ollamaStatus === "running" ? C.medium : C.muted,
+              }} />
+              {ollamaStatus === "running" ? "OLLAMA" : "NO AI"}
+            </span>
+          )}
         </div>
 
         {/* Right: controls — no-drag */}
@@ -731,7 +752,7 @@ export default function TaskDashboard() {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               onBlur={() => { if (model.trim()) window.toasty.setSettings({ model: model.trim() }); }}
-              placeholder="llama3.2:3b"
+              placeholder="llama3.2:1b"
               style={{
                 fontFamily: "var(--font-pixel)", fontSize: 8,
                 background: C.tan, border: `1px solid ${C.border}`,
@@ -741,6 +762,32 @@ export default function TaskDashboard() {
             <datalist id="ollama-models">
               {availableModels.map((m) => <option key={m} value={m} />)}
             </datalist>
+          </label>
+          {/* ── Groq API key ── */}
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: C.text }}>GROQ KEY</span>
+            <input
+              type="password"
+              value={groqKeyDraft}
+              onChange={(e) => setGroqKeyDraft(e.target.value)}
+              onBlur={() => {
+                const trimmed = groqKeyDraft.trim();
+                setGroqApiKey(trimmed);
+                window.toasty.setSettings({ groqApiKey: trimmed });
+              }}
+              placeholder="gsk_…"
+              style={{
+                fontFamily: "var(--font-pixel)", fontSize: 8,
+                background: C.tan, border: `1px solid ${C.border}`,
+                color: C.text, padding: "2px 6px", width: 160,
+              }}
+            />
+            <span style={{
+              color: groqApiKey ? C.done : C.muted,
+              fontSize: 8,
+            }}>
+              {groqApiKey ? "✓ active" : "not set — using rules"}
+            </span>
           </label>
           <span style={{ color: C.muted }}>
             (opacity slider dims Toasty too — find a sweet spot)

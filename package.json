@@ -1,7 +1,7 @@
 {
   "name": "toasty",
-  "version": "0.3.0",
-  "description": "Local pixel-cat task companion — fully offline, Electron + Ollama",
+  "version": "0.4.0",
+  "description": "Pixel-cat task companion — Groq cloud AI, offline rule fallback, Electron + SQLite",
   "private": true,
   "main": "app/background.js",
   "scripts": {
@@ -42,7 +42,8 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
     }
   }
 }

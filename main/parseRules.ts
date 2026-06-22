@@ -1,0 +1,214 @@
+// Deterministic rule-based task parser.
+// No LLM, no IO — instant and can never freeze the machine.
+// Used as the offline/no-key fallback for parseTasks() and as the
+// authoritative date/time/link validator for the Groq anti-hallucination cross-check.
+import { todayStr, tomorrowStr, addDays, nextWeekday } from "./dateUtils";
+import { getKnownCategories } from "./aiShared";
+
+// ── Time extraction ──────────────────────────────────────────────────────────
+
+type TimePattern = [RegExp, (m: RegExpMatchArray) => string];
+
+const TIME_PATTERNS: TimePattern[] = [
+  // "3pm" / "3:30pm" / "3:30 pm"
+  [/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i, (m) => {
+    let h = parseInt(m[1], 10);
+    const min = m[2] ?? "00";
+    const ampm = m[3].toLowerCase();
+    if (ampm === "pm" && h < 12) h += 12;
+    if (ampm === "am" && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${min}`;
+  }],
+  // "15:00" or "9:00" (24h, colon required to avoid matching "t001" ids)
+  [/\b([01]?\d|2[0-3]):([0-5]\d)\b/, (m) => `${String(parseInt(m[1], 10)).padStart(2, "0")}:${m[2]}`],
+  // "noon"
+  [/\bnoon\b/i, () => "12:00"],
+  // "midnight"
+  [/\bmidnight\b/i, () => "00:00"],
+];
+
+function extractTime(text: string): { time: string | null; rest: string } {
+  for (const [re, fn] of TIME_PATTERNS) {
+    const m = text.match(re);
+    if (m) {
+      return { time: fn(m), rest: text.replace(m[0], " ").replace(/\s+/g, " ").trim() };
+    }
+  }
+  return { time: null, rest: text };
+}
+
+// ── Date extraction ──────────────────────────────────────────────────────────
+
+const WEEKDAYS: Record<string, number> = {
+  sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+  wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5,
+  sat: 6, saturday: 6,
+};
+
+const MONTH_NAMES: Record<string, number> = {
+  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+  apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
+  aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
+  nov: 10, november: 10, dec: 11, december: 11,
+};
+
+function extractDate(text: string): { date: string | null; rest: string } {
+  // YYYY-MM-DD (explicit ISO)
+  const iso = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (iso) return { date: iso[1], rest: text.replace(iso[0], " ").replace(/\s+/g, " ").trim() };
+
+  // DD/MM or DD/MM/YYYY
+  const slash = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/);
+  if (slash) {
+    const year = slash[3] ? parseInt(slash[3], 10) : new Date().getFullYear();
+    const month = String(parseInt(slash[2], 10)).padStart(2, "0");
+    const day = String(parseInt(slash[1], 10)).padStart(2, "0");
+    return { date: `${year}-${month}-${day}`, rest: text.replace(slash[0], " ").replace(/\s+/g, " ").trim() };
+  }
+
+  // "Jan 15" / "15 Jan"
+  for (const [name, idx] of Object.entries(MONTH_NAMES)) {
+    const re1 = new RegExp(`\\b${name}\\s+(\\d{1,2})\\b`, "i");
+    const re2 = new RegExp(`\\b(\\d{1,2})\\s+${name}\\b`, "i");
+    const m = text.match(re1) || text.match(re2);
+    if (m) {
+      const year = new Date().getFullYear();
+      const day = String(parseInt(m[1], 10)).padStart(2, "0");
+      const month = String(idx + 1).padStart(2, "0");
+      return { date: `${year}-${month}-${day}`, rest: text.replace(m[0], " ").replace(/\s+/g, " ").trim() };
+    }
+  }
+
+  // "next week" → +7 days
+  if (/\bnext\s+week\b/i.test(text))
+    return { date: addDays(7), rest: text.replace(/\bnext\s+week\b/i, " ").replace(/\s+/g, " ").trim() };
+
+  // "next month" → 1st of next month
+  if (/\bnext\s+month\b/i.test(text)) {
+    const d = new Date(); d.setMonth(d.getMonth() + 1, 1);
+    return { date: d.toISOString().split("T")[0], rest: text.replace(/\bnext\s+month\b/i, " ").replace(/\s+/g, " ").trim() };
+  }
+
+  // Named relative terms — longer matches first to avoid partial hits
+  const relMap: [RegExp, () => string][] = [
+    [/\bnext\s+(sun|mon|tue|wed|thu|fri|sat|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
+      () => {
+        const m = text.match(/\bnext\s+(\w+)\b/i)!;
+        const key = m[1].toLowerCase();
+        const target = WEEKDAYS[key] ?? 1;
+        const d = new Date();
+        // "next X" = the X after the upcoming one (skip any this week)
+        const diff = (target - d.getDay() + 7) % 7 || 7;
+        const skip = diff < 7 ? 7 : 0;
+        d.setDate(d.getDate() + diff + skip);
+        return d.toISOString().split("T")[0];
+      },
+    ],
+    [/\btonight\b/i,   todayStr],
+    [/\btomorrow\b/i,  tomorrowStr],
+    [/\btmrw\b/i,      tomorrowStr],
+    [/\btmr\b/i,       tomorrowStr],
+    [/\btoday\b/i,     todayStr],
+    [/\bEOD\b/i,       todayStr],
+    [/\bCOB\b/i,       todayStr],
+    [/\b(sun|mon|tue|wed|thu|fri|sat|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
+      () => {
+        const m = text.match(/\b(sun|mon|tue|wed|thu|fri|sat|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i)!;
+        return nextWeekday(WEEKDAYS[m[1].toLowerCase()] ?? 1);
+      },
+    ],
+  ];
+
+  for (const [re, fn] of relMap) {
+    if (re.test(text)) {
+      return { date: fn(), rest: text.replace(re, " ").replace(/\s+/g, " ").trim() };
+    }
+  }
+
+  return { date: null, rest: text };
+}
+
+// ── Priority extraction ──────────────────────────────────────────────────────
+
+function extractPriority(text: string): { priority: "high" | "medium" | "low"; rest: string } {
+  if (/\b(urgent|asap|critical|immediate)\b/i.test(text) || /!!+/.test(text)) {
+    return {
+      priority: "high",
+      rest: text.replace(/\b(urgent|asap|critical|immediate)\b/gi, "").replace(/!!+/g, "").replace(/\s+/g, " ").trim(),
+    };
+  }
+  if (/\b(low[\s-]?priority|whenever|no[\s-]?rush)\b/i.test(text)) {
+    return { priority: "low", rest: text };
+  }
+  return { priority: "medium", rest: text };
+}
+
+// ── Category extraction ──────────────────────────────────────────────────────
+
+function extractCategory(text: string): { category: string; rest: string } {
+  // Explicit #tag (highest priority)
+  const hashTag = text.match(/#([A-Za-z][\w/-]*)/);
+  if (hashTag) {
+    return { category: hashTag[1], rest: text.replace(hashTag[0], " ").replace(/\s+/g, " ").trim() };
+  }
+  // Match against the user's known DB categories (case-insensitive substring)
+  const known = getKnownCategories().split(", ");
+  const lower = text.toLowerCase();
+  for (const cat of known) {
+    if (lower.includes(cat.toLowerCase())) return { category: cat, rest: text };
+  }
+  return { category: "", rest: text };
+}
+
+// ── Link extraction ──────────────────────────────────────────────────────────
+
+function extractLinks(text: string): { links: string[]; rest: string } {
+  const links: string[] = [];
+  const rest = text
+    .replace(/https?:\/\/\S+/g, (url) => { links.push(url); return " "; })
+    .replace(/\s+/g, " ")
+    .trim();
+  return { links, rest };
+}
+
+// ── Title clean-up ───────────────────────────────────────────────────────────
+
+function cleanTitle(s: string): string {
+  return s
+    .replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
+
+/** Parse `text` deterministically — no LLM, no IO, never throws.
+ *  Always returns at least one task. */
+export function ruleParse(text: string): any[] {
+  const cleaned = text
+    .replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "")
+    .trim() || text;
+
+  const { links, rest: r1 } = extractLinks(cleaned);
+  const { priority, rest: r2 } = extractPriority(r1);
+  const { category, rest: r3 } = extractCategory(r2);
+  const { time, rest: r4 } = extractTime(r3);
+  const { date, rest: r5 } = extractDate(r4);
+
+  const title = cleanTitle(r5) || cleaned; // fallback: full original text
+
+  // A time without an explicit date defaults to today (so reminders can fire)
+  const dueDate = date ?? (time ? todayStr() : null);
+
+  return [{
+    title,
+    subtasks:  [],
+    priority,
+    startDate: null,
+    dueDate,
+    dueTime:   time,
+    category,
+    notes:     "",
+    links,
+  }];
+}
