@@ -59,6 +59,9 @@ interface ToastyAPI {
   onReminder: (cb: (tasks: any[]) => void) => () => void;
   // App version
   getVersion: () => Promise<string>;
+  // Auto-update
+  onUpdateStatus: (cb: (status: any) => void) => () => void;
+  installUpdate: () => Promise<void>;
 }
 
 declare global {

@@ -12,6 +12,7 @@ import {
   movePetWindow, getPetPosition, pushReminder, setPetIgnoreMouse,
   focusExisting,
 } from "./windows";
+import { initAutoUpdater, checkForUpdates, installUpdate } from "./updater";
 
 // Unify dev + prod userData path so both write to %APPDATA%\Roaming\toasty\
 app.setName("toasty");
@@ -147,6 +148,7 @@ ipcMain.handle("window:setPetIgnore", (_e, ignore: boolean) => setPetIgnoreMouse
 ipcMain.handle("ollama:check", async () => checkOllama());
 ipcMain.handle("ai:models", () => listModels());
 ipcMain.handle("app:version", () => app.getVersion());
+ipcMain.handle("app:installUpdate", () => installUpdate());
 
 // ─── Ambient state tick ───────────────────────
 function isInQuietHours(h: number, from: number, to: number): boolean {
@@ -195,6 +197,7 @@ if (!gotTheLock) {
   app.on("second-instance", () => focusExisting());
 
   app.on("ready", async () => {
+    initAutoUpdater();
     setupTray();
     const s = getSettings();
     applyAutoLaunch();
@@ -205,6 +208,8 @@ if (!gotTheLock) {
     }
     tickAmbient();
     setInterval(tickAmbient, 60_000);
+    // Check for updates after windows load so push events have a target
+    setTimeout(checkForUpdates, 3000);
     // Initial Ollama check after window loads, then every 30s
     setTimeout(tickOllama, 2000);
     setInterval(tickOllama, 30_000);

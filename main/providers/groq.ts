@@ -45,7 +45,7 @@ export async function groqParse(text: string): Promise<any[]> {
 
   const systemPrompt =
 `Extract one or more tasks from the text. Return ONLY a JSON array, no markdown, no extra text.
-IMPORTANT: Extract ONLY information explicitly present in the input. Never invent dates, times, names, subtasks, links, or URLs. If a field is not stated, output null (or [] or ""). Add subtasks ONLY when the input literally lists multiple distinct actions, else [].
+IMPORTANT: Extract ONLY information explicitly present in the input. Never invent dates, times, names, links, or URLs. If a field is not stated, output null (or [] or "").
 Today is ${today}. Tomorrow is ${tomorrow}.
 
 Each item must have ALL of these fields:
@@ -55,7 +55,7 @@ TITLE: MAX 80 characters. Start with an action verb (Suggest, Create, Review, Up
 PRIORITY: high = hard deadline within 1 week or blocking. medium = standard. low = nice-to-have.
 CATEGORY: Pick the closest match from: ${knownCategories}. Never use a date or vague word as a category.
 DATES: Never output relative words — always convert to YYYY-MM-DD. Convert 12h to 24h: "3pm"→"15:00".
-SUBTASKS: Add specific completable steps ONLY when the input literally lists multiple actions. Return [] for simple tasks.
+SUBTASKS: If the task is COMPLEX — it explicitly lists multiple steps, contains several distinct action verbs, or is a long multi-clause request — break it into 3–6 concrete, actionable subtasks each starting with a verb. For a simple single-action task, return []. Subtasks must be grounded in the input; do not invent unrelated steps.
 NOTES: Capture context not already in the title. Use "" if nothing useful remains.
 LINKS: Extract only http:// or https:// URLs. Do not repeat URLs in notes.
 If no task found, return [].`;
@@ -174,6 +174,7 @@ Current task: ${taskJSON}
 Today is ${todayStr()}. Tomorrow is ${tomorrowStr()}.
 IMPORTANT: All dates MUST be in YYYY-MM-DD format. Never output relative words like "tomorrow".
 IMPORTANT: Only change what the instruction asks for. Keep everything else intact.
+If the instruction asks to break the task down, add steps, or list subtasks, generate 3–6 concrete actionable subtasks grounded in the task title and notes, each starting with a verb.
 Return ONLY a JSON object with the adjusted task. Keep ALL original fields.
 Format: {"title":"...","subtasks":[{"text":"step","done":false}],"priority":"high|medium|low","startDate":"YYYY-MM-DD or null","dueDate":"YYYY-MM-DD or null","dueTime":"HH:MM or null","category":"...","status":"todo|in_progress|done","notes":"...","links":["..."]}`;
 

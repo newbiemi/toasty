@@ -3,6 +3,14 @@ import type { Task, Subtask } from "@/types/task";
 import Cat from "./Cat";
 import { buildTaskFromParsed, safeDate } from "@/lib/taskFromParsed";
 
+type UpdateStatus =
+  | { type: "checking" }
+  | { type: "available"; version: string }
+  | { type: "not-available" }
+  | { type: "progress"; percent: number }
+  | { type: "downloaded"; version: string }
+  | { type: "error"; message: string };
+
 // ─── Palette ─────────────────────────────────
 const C = {
   cream: "#f4e4c1",
@@ -200,6 +208,7 @@ function TaskModal({
   const [t, setT] = useState<Task>({ ...task });
   const [adjustText, setAdjustText] = useState("");
   const [adjusting, setAdjusting] = useState(false);
+  const [adjustError, setAdjustError] = useState("");
   const [newLink, setNewLink] = useState("");
   const [newSubtask, setNewSubtask] = useState("");
 
@@ -225,6 +234,7 @@ function TaskModal({
   const handleAdjust = async () => {
     if (!adjustText.trim()) return;
     setAdjusting(true);
+    setAdjustError("");
     try {
       const result = await window.toasty.adjust(JSON.stringify(t), adjustText.trim());
       if (Array.isArray(result) && result.length > 0) {
@@ -233,8 +243,8 @@ function TaskModal({
         setT((prev) => mergeAdjusted(prev, result));
       }
       setAdjustText("");
-    } catch {
-      // silently ignore — modal stays open
+    } catch (err: any) {
+      setAdjustError(err?.message ?? "Adjust failed — check your Groq key in Settings 🐾");
     } finally {
       setAdjusting(false);
     }
@@ -462,6 +472,9 @@ function TaskModal({
               {adjusting ? "..." : "GO"}
             </button>
           </div>
+          {adjustError && (
+            <p style={{ margin: "4px 0 0", fontSize: 10, color: "#e06c75" }}>{adjustError}</p>
+          )}
         </div>
 
         {/* Save / Cancel */}
@@ -506,6 +519,7 @@ export default function TaskDashboard() {
   const [appVersion, setAppVersion] = useState("");
   const [groqApiKey, setGroqApiKey] = useState("");
   const [groqKeyDraft, setGroqKeyDraft] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
 
   useEffect(() => {
     window.toasty.listTasks().then((t) => { setTasks(t); setLoaded(true); });
@@ -530,7 +544,8 @@ export default function TaskDashboard() {
     window.toasty.getVersion().then(setAppVersion);
     // Initial check — main process pushes after 2s but do an eager one too
     window.toasty.checkOllama().then((s) => setOllamaStatus(s));
-    return () => { unsubCat(); unsubOllama(); unsubReminder(); };
+    const unsubUpdate = window.toasty.onUpdateStatus((s) => setUpdateStatus(s));
+    return () => { unsubCat(); unsubOllama(); unsubReminder(); unsubUpdate(); };
   }, []);
 
   // ── Add / parse ──────────────────────────────
@@ -797,6 +812,34 @@ export default function TaskDashboard() {
               v{appVersion}
             </span>
           )}
+        </div>
+      )}
+
+      {/* ── Update banner ── */}
+      {updateStatus?.type === "downloaded" && (
+        <div style={{
+          background: "#3d8b40", color: "#fff",
+          padding: "6px 18px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontFamily: "var(--font-pixel)", fontSize: 9, letterSpacing: "0.04em", cursor: "pointer",
+        }} onClick={() => window.toasty.installUpdate()}>
+          <span>🐾 v{(updateStatus as any).version} ready — click to restart &amp; install</span>
+          <span onClick={(e) => { e.stopPropagation(); setUpdateStatus(null); }} style={{ marginLeft: 12 }}>✕</span>
+        </div>
+      )}
+      {updateStatus?.type === "available" && (
+        <div style={{
+          background: C.panel, color: C.muted, borderBottom: `1px solid ${C.border}`,
+          padding: "4px 18px", fontFamily: "var(--font-pixel)", fontSize: 9,
+        }}>
+          ⬇ Downloading v{(updateStatus as any).version}…
+        </div>
+      )}
+      {updateStatus?.type === "progress" && (
+        <div style={{
+          background: C.panel, color: C.muted, borderBottom: `1px solid ${C.border}`,
+          padding: "4px 18px", fontFamily: "var(--font-pixel)", fontSize: 9,
+        }}>
+          ⬇ Downloading update… {(updateStatus as any).percent}%
         </div>
       )}
 

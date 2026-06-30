@@ -68,4 +68,12 @@ contextBridge.exposeInMainWorld("toasty", {
 
   // ── App version ──
   getVersion: () => ipcRenderer.invoke("app:version"),
+
+  // ── Auto-update ──
+  onUpdateStatus: (cb: (status: any) => void) => {
+    const handler = (_e: any, status: any) => cb(status);
+    ipcRenderer.on("update:status", handler);
+    return () => ipcRenderer.removeListener("update:status", handler);
+  },
+  installUpdate: () => ipcRenderer.invoke("app:installUpdate"),
 });

@@ -1,0 +1,8 @@
+# Local update server for testing electron-updater in dev mode.
+# Usage:
+#   1. npm run build  (generates dist/ with latest.yml + installer)
+#   2. npx serve dist/ -p 8090
+#   3. npm run dev    (app checks http://localhost:8090/latest.yml on launch after 3s)
+provider: generic
+url: http://localhost:8090
+updaterCacheDirName: toasty-updater

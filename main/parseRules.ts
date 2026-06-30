@@ -180,6 +180,56 @@ function cleanTitle(s: string): string {
     .trim();
 }
 
+// ── Subtask extraction ───────────────────────────────────────────────────────
+
+/** Split text into actionable subtask items.
+ *  Two modes:
+ *  1. Explicit marker  — "subtasks: …", "steps: …", "todo: …" etc. — extract
+ *     items listed after the marker (comma/and-separated).
+ *  2. Complex task inference — if NO marker but there are 2+ comma/and-separated
+ *     verb-led clauses (multi-action), split into subtasks.
+ *  Simple single-action tasks return []. */
+function extractSubtasks(text: string): { text: string; done: boolean }[] {
+  // Explicit subtask / step markers (case-insensitive)
+  const MARKER_RE = /\b(?:subtasks?|sub-tasks?|steps?|to[- ]?do(?:s|list)?)\s*[:–\-]\s*/i;
+  const markerMatch = text.match(MARKER_RE);
+  let segment = "";
+
+  if (markerMatch && markerMatch.index !== undefined) {
+    // Take everything after the marker
+    segment = text.slice(markerMatch.index + markerMatch[0].length).trim();
+  } else {
+    // No explicit marker — check if this looks like a complex multi-action task.
+    // Heuristic: 2+ comma/and-separated segments that each start with a verb.
+    // Verbs here are any word that isn't a preposition/article/number.
+    const NON_VERB = /^(?:a|an|the|to|for|with|by|at|in|on|of|from|about|\d)$/i;
+    const parts = text
+      .split(/,|\band\b|\&/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 8); // discard very short fragments
+    const verbLed = parts.filter((s) => {
+      const firstWord = s.split(/\s+/)[0];
+      return firstWord && !NON_VERB.test(firstWord);
+    });
+    // Require 3+ verb-led clauses without an explicit marker, so a single "and"
+    // joining names or objects ("Email Ongki and Budi") does not produce subtasks.
+    if (verbLed.length >= 3) {
+      segment = parts.join(", ");
+    }
+  }
+
+  if (!segment) return [];
+
+  // Split segment on commas and "and"/"&", trim, drop very short/empty strings
+  const items = segment
+    .split(/,|\band\b|\&/)
+    .map((s) => s.trim().replace(/^[-•*]\s*/, "")) // strip leading bullets if any
+    .filter((s) => s.length > 4);
+
+  if (items.length < 2) return []; // single fragment after split → not a list
+  return items.map((s) => ({ text: s.charAt(0).toUpperCase() + s.slice(1), done: false }));
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Parse `text` deterministically — no LLM, no IO, never throws.
@@ -188,6 +238,10 @@ export function ruleParse(text: string): any[] {
   const cleaned = text
     .replace(/^(hi|hey|hello)\s+(toasty|there)[,!]?\s*/i, "")
     .trim() || text;
+
+  // Extract subtasks from the original cleaned text BEFORE field-stripping,
+  // so markers like "subtasks:" survive the pipeline.
+  const subtasks = extractSubtasks(cleaned);
 
   const { links, rest: r1 } = extractLinks(cleaned);
   const { priority, rest: r2 } = extractPriority(r1);
@@ -202,7 +256,7 @@ export function ruleParse(text: string): any[] {
 
   return [{
     title,
-    subtasks:  [],
+    subtasks,
     priority,
     startDate: null,
     dueDate,

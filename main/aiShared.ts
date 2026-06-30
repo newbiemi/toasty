@@ -3,9 +3,15 @@ import { listTasks } from "./db";
 
 // ── JSON extraction ──────────────────────────────────────────────────────────
 
-/** Strip markdown fences and extract the first JSON array or object */
+/** Strip markdown fences and extract the first JSON array or object.
+ *  Tries direct parse first — the `response_format: json_object` Groq path already
+ *  returns clean JSON, so the slice heuristic is only a fallback for fence-wrapped or
+ *  chatty responses (e.g. Ollama, or a model that ignores the format constraint). */
 export function extractJSON(raw: string): string {
-  let cleaned = raw.replace(/```json|```/g, "").trim();
+  const cleaned = raw.replace(/```json|```/g, "").trim();
+  // Happy path: already valid JSON — return as-is (avoids the first-[/last-] corruption
+  // that occurs when subtasks/links arrays are present but not the last field).
+  try { JSON.parse(cleaned); return cleaned; } catch { /* fall through to slice heuristic */ }
   const arrStart = cleaned.indexOf("[");
   const arrEnd = cleaned.lastIndexOf("]");
   const objStart = cleaned.indexOf("{");

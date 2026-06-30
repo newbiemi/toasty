@@ -106,16 +106,12 @@ export async function adjustTask(taskJSON: string, instruction: string): Promise
   const s = getSettings();
 
   if (s.aiProvider !== "ollama" && s.groqApiKey) {
-    try {
-      return await groqAdjust(taskJSON, instruction);
-    } catch {
-      // Groq failed → return unchanged task so the modal isn't left broken
-    }
+    // Let errors propagate so the UI can surface them — no silent swallow.
+    return await groqAdjust(taskJSON, instruction);
   }
 
-  // Offline / no key: parse the task back and return as-is
-  // (The UI silently ignores a result matching the original — no data loss)
-  try { return JSON.parse(taskJSON); } catch { return {}; }
+  // No key / ollama mode: AI adjust cannot run without a cloud connection.
+  throw new Error("AI adjust needs a Groq key to work 🐾 — add one in Settings.");
 }
 
 // ── chat ──────────────────────────────────────────────────────────────────────

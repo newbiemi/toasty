@@ -292,6 +292,10 @@ export function pushReminder(tasks: any[]) {
   if (win && !win.isDestroyed()) win.webContents.send("toasty:reminder", tasks);
 }
 
+export function pushUpdateStatus(status: object) {
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send("update:status", status);
+}
+
 export function setPetIgnoreMouse(ignore: boolean) {
   if (petWin && !petWin.isDestroyed())
     petWin.setIgnoreMouseEvents(ignore, { forward: true });
