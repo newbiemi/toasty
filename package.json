@@ -8,6 +8,7 @@
     "dev": "nextron",
     "build": "nextron build",
     "rebuild": "electron-builder install-app-deps",
+    "icons": "node scripts/generate-icons.js",
     "migrate": "electron scripts/migrate-from-supabase.js"
   },
   "dependencies": {
@@ -33,7 +34,9 @@
     "files": [
       "app/**/*"
     ],
-    "extraResources": [],
+    "extraResources": [
+      { "from": "resources", "to": "." }
+    ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"
     ],
@@ -42,7 +45,8 @@
       "url": "https://your-update-server.com/toasty/"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "resources/icon.ico"
     },
     "nsis": {
       "oneClick": true,

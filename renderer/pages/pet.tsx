@@ -1,28 +1,27 @@
 import Head from "next/head";
 import { useEffect, useState, useRef } from "react";
-import Cat from "../components/Cat";
+import CatSvg from "../components/CatSvg";
+import MenuPanel from "../components/MenuPanel";
+
+// Fixed canvas big enough to hold the cat + an open menu, so opening the menu
+// never resizes the OS window (which would fight the size-lock in windows.ts).
+// Must match PET_W/PET_H in main/windows.ts.
+const PET_W = 340;
+const PET_H = 300;
+const CAT_BOX = 88; // cat's own hit-region within the canvas — matches PET_CAT in windows.ts
 
 export default function PetPage() {
   const [catState, setCatState] = useState("idle");
   const [minimized, setMinimized] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // IPC-based drag state — avoids WebkitAppRegion:"no-drag" covering the entire cat
   const dragRef = useRef({ dragging: false, moved: false, startX: 0, startY: 0, winX: 0, winY: 0 });
 
-  // B2: per-pixel click-through refs
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ignoreRef = useRef(false);      // current setIgnoreMouseEvents state
-  const hasFrameRef = useRef(false);    // true once a sprite frame has been drawn to canvas
   const minimizedRef = useRef(false);   // mirror of minimized state for use inside event handlers
-
-  // Create offscreen canvas once for alpha sampling
-  useEffect(() => {
-    const c = document.createElement("canvas");
-    c.width = 72; c.height = 72;
-    canvasRef.current = c;
-    return () => { canvasRef.current = null; };
-  }, []);
+  const menuOpenRef = useRef(false);    // mirror of menuOpen for use inside event handlers
 
   // Keep minimizedRef in sync; reset to interactive when entering dot mode
   useEffect(() => {
@@ -33,7 +32,16 @@ export default function PetPage() {
     }
   }, [minimized]);
 
+  useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
+
   useEffect(() => {
+    // window.toasty is injected by Electron's preload/contextBridge and can be
+    // transiently absent during dev (nextron's main-process build and the
+    // renderer's `next dev` share the same `app/` distDir and can race/clobber
+    // each other's output — see windows.ts). Guard so a missing bridge degrades
+    // to a static (non-interactive) render instead of throwing in this mount
+    // effect and tearing down the whole tree.
+    if (!window.toasty) return;
     window.toasty.getSettings().then((s) => setMinimized(s.petMinimized));
     const unsub = window.toasty.onCatState((s) => setCatState(s));
 
@@ -49,37 +57,20 @@ export default function PetPage() {
         return;
       }
 
-      // Per-pixel click-through: dot mode is always a solid circle, skip
+      // Dot mode is always a solid circle, skip
       if (minimizedRef.current) return;
 
-      // Minimize button overlay — interactive regardless of alpha
+      // Click-through via SVG DOM hit-testing: the cat is an inline SVG (no
+      // rasterized frame to alpha-sample), so instead we ask "is the element
+      // under the cursor part of the painted cat, the minimize button, or the
+      // open menu?" Anything else in the fixed PET_W×PET_H canvas is empty
+      // canvas and should pass clicks through to whatever is behind Toasty.
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (el?.closest("[data-min-btn]")) {
-        if (ignoreRef.current) { ignoreRef.current = false; window.toasty.setPetIgnore(false); }
-        return;
-      }
-
-      // No frame loaded yet (emoji fallback or initial load) — stay interactive
-      if (!hasFrameRef.current) {
-        if (ignoreRef.current) { ignoreRef.current = false; window.toasty.setPetIgnore(false); }
-        return;
-      }
-
-      // Sample sprite alpha at cursor position.
-      // Sprite (72×72) is centered in the 88×88 window → 8px margin on each side.
-      const sx = Math.round(e.clientX - 8);
-      const sy = Math.round(e.clientY - 8);
-      let shouldIgnore: boolean;
-      if (sx < 0 || sx >= 72 || sy < 0 || sy >= 72) {
-        shouldIgnore = true; // outside sprite box → transparent corner
-      } else {
-        try {
-          const ctx = canvasRef.current?.getContext("2d") ?? null;
-          shouldIgnore = ctx ? ctx.getImageData(sx, sy, 1, 1).data[3] < 10 : false;
-        } catch {
-          shouldIgnore = false; // tainted canvas — treat as opaque
-        }
-      }
+      const hit =
+        el?.closest("[data-min-btn]") ||
+        el?.closest("[data-cat-hit]") ||
+        (menuOpenRef.current && el?.closest("[data-menu-hit]"));
+      const shouldIgnore = !hit;
 
       if (shouldIgnore !== ignoreRef.current) {
         ignoreRef.current = shouldIgnore;
@@ -113,19 +104,8 @@ export default function PetPage() {
     e.stopPropagation();
     const next = !minimized;
     setMinimized(next);
+    if (next) setMenuOpen(false);
     window.toasty.setPetSize(next ? "dot" : "full");
-  };
-
-  // B3: called by Cat on each frame load; draws the sprite into the offscreen canvas
-  const handleFrameImg = (img: HTMLImageElement | null) => {
-    hasFrameRef.current = img !== null;
-    if (!img) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, 72, 72);
-    ctx.drawImage(img, 0, 0, 72, 72);
   };
 
   const handleCatClick = () => {
@@ -138,7 +118,7 @@ export default function PetPage() {
     } else {
       clickTimer.current = setTimeout(() => {
         clickTimer.current = null;
-        window.toasty.openCapture();
+        setMenuOpen((o) => !o);
       }, 250);
     }
   };
@@ -150,7 +130,7 @@ export default function PetPage() {
           html, body, #__next {
             background: transparent !important;
             margin: 0; padding: 0; overflow: hidden;
-            width: 88px; height: 88px;
+            width: ${PET_W}px; height: ${PET_H}px;
           }
         `}</style>
       </Head>
@@ -167,54 +147,57 @@ export default function PetPage() {
             cursor: "pointer",
             WebkitAppRegion: "no-drag",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16,
             userSelect: "none",
           } as React.CSSProperties}
           title="Restore Toasty"
         >
-          🐱
+          <CatSvg variant="head" size={26} />
         </div>
       ) : (
-        /* ── Full cat mode ── */
-        <div
-          onMouseDown={handleMouseDown}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          style={{
-            width: 88, height: 88,  // matches PET_FULL in windows.ts; 100vw/100vh = monitor dims in transparent windows
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "grab",
-            overflow: "hidden",
-          }}
-        >
-          {/* Wrapper sized to the cat — keeps minimize button anchored to the sprite */}
-          <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
-            {hovered && (
-              <div
-                data-min-btn="1"
-                onClick={handleMinimize}
-                style={{
-                  position: "absolute", top: -2, right: -2,
-                  width: 20, height: 14,
-                  background: "#e8943b",
-                  border: "2px solid #5a3e2b",
-                  borderRadius: 3,
-                  cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, lineHeight: 1, color: "#fff", fontWeight: 900,
-                  userSelect: "none",
-                } as React.CSSProperties}
-              >
-                _
-              </div>
-            )}
-            <Cat
-              state={catState}
-              size={72}
-              onClick={handleCatClick}
-              onFrameImg={handleFrameImg}
-            />
+        /* ── Full mode: fixed canvas holding the cat + (optionally) the menu ── */
+        <div style={{ position: "relative", width: PET_W, height: PET_H }}>
+          <div
+            onMouseDown={handleMouseDown}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+              position: "absolute", left: 0, top: 0,
+              width: CAT_BOX, height: CAT_BOX,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "grab",
+              overflow: "hidden",
+            }}
+          >
+            {/* Wrapper sized to the cat — keeps minimize button anchored to the sprite */}
+            <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
+              {hovered && (
+                <div
+                  data-min-btn="1"
+                  onClick={handleMinimize}
+                  style={{
+                    position: "absolute", top: -2, right: -2,
+                    width: 20, height: 14,
+                    background: "#e8943b",
+                    border: "2px solid #5a3e2b",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, lineHeight: 1, color: "#fff", fontWeight: 900,
+                    userSelect: "none",
+                  } as React.CSSProperties}
+                >
+                  _
+                </div>
+              )}
+              <CatSvg state={catState} size={72} onClick={handleCatClick} />
+            </div>
           </div>
+
+          {menuOpen && (
+            <div style={{ position: "absolute", left: CAT_BOX + 8, top: 0 }}>
+              <MenuPanel />
+            </div>
+          )}
         </div>
       )}
     </>
