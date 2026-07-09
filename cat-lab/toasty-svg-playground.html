@@ -1,0 +1,497 @@
+<title>Toasty — Character Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light dark;
+
+    /* page chrome — a "workshop paper" world, distinct from the cat's own cream/toast fur */
+    --bg: #e9e1cf;
+    --ink: #3b3024;
+    --ink-soft: #6b5d4a;
+    --stage: #2b2620;
+    --stage-edge: #423a30;
+    --accent: #bd5f2b;
+    --accent-soft: #7e9678;
+    --line: rgba(59, 48, 36, 0.16);
+    --shadow: rgba(30, 24, 16, 0.28);
+
+    /* Toasty's own fur palette — separate token set, this is the character, not the chrome */
+    --fur: #f5e6d3;
+    --fur-belly: #faf1e2;
+    --fur-edge: #5b4636;
+    --fur-paw: #e6d2b4;
+    --fur-mark: #e8a87c;
+    --blush: #f7b7c4;
+    --eye: #3a2e28;
+    --eye-hi: #fffaf0;
+
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-ui: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Cascadia Code", Consolas, "SFMono-Regular", ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1611;
+      --ink: #ece0cb;
+      --ink-soft: #b8a98d;
+      --stage: #100d0a;
+      --stage-edge: #2a241c;
+      --accent: #e8a87c;
+      --accent-soft: #8fae89;
+      --line: rgba(236, 224, 203, 0.14);
+      --shadow: rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1611;
+    --ink: #ece0cb;
+    --ink-soft: #b8a98d;
+    --stage: #100d0a;
+    --stage-edge: #2a241c;
+    --accent: #e8a87c;
+    --accent-soft: #8fae89;
+    --line: rgba(236, 224, 203, 0.14);
+    --shadow: rgba(0, 0, 0, 0.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #e9e1cf;
+    --ink: #3b3024;
+    --ink-soft: #6b5d4a;
+    --stage: #2b2620;
+    --stage-edge: #423a30;
+    --accent: #bd5f2b;
+    --accent-soft: #7e9678;
+    --line: rgba(59, 48, 36, 0.16);
+    --shadow: rgba(30, 24, 16, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 56px 20px 72px;
+  }
+
+  .header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5vw, 3rem);
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+
+  .subhead {
+    margin: 0;
+    max-width: 46ch;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    text-wrap: balance;
+  }
+
+  .stage-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .stage {
+    position: relative;
+    width: min(420px, 84vw);
+    aspect-ratio: 1 / 1.05;
+    border-radius: 28px;
+    background:
+      radial-gradient(120% 100% at 50% 28%, rgba(232, 168, 124, 0.16), transparent 60%),
+      var(--stage);
+    border: 1px solid var(--stage-edge);
+    box-shadow: 0 24px 60px -20px var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* corner registration ticks — lightbox / specimen-case framing, not decoration for its own sake */
+  .stage::before, .stage::after,
+  .tick-br, .tick-bl {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid rgba(245, 230, 211, 0.28);
+  }
+  .stage::before { top: 14px; left: 14px; border-right: none; border-bottom: none; }
+  .stage::after { top: 14px; right: 14px; border-left: none; border-bottom: none; }
+  .tick-bl { bottom: 14px; left: 14px; border-right: none; border-top: none; }
+  .tick-br { bottom: 14px; right: 14px; border-left: none; border-top: none; }
+
+  #toasty-svg {
+    /* fixed 1:1 unit-to-px sizing — any CSS/% scale here would land cell edges on
+       fractional device pixels and soften them despite crispEdges */
+    overflow: visible;
+    shape-rendering: crispEdges;
+  }
+
+  .placard {
+    margin-top: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 20px;
+    background: transparent;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .placard-name {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+  }
+
+  .placard-tag {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+
+  .caption {
+    max-width: 42ch;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+  .caption strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- pixel-grid motion ----------
+     The blur from earlier passes came from fractional display scaling, not from motion —
+     now that the SVG is fixed 1:1, the sprite stays crisp at rest no matter how it moves.
+     So idle motion is smooth/eased here (comnyang-like), not snapped between held poses;
+     only the blink stays a hard instant swap, since a real blink IS instant. */
+
+  #critter {
+    transform-box: view-box;
+    transform-origin: 120px 210px;
+    animation: breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.022); }
+  }
+
+  #tail-rig {
+    transform-box: view-box;
+    transform-origin: 190px 140px;
+    animation: tail-sway 4.4s ease-in-out infinite;
+  }
+  @keyframes tail-sway {
+    0%, 100% { transform: translate(0px, 0px); }
+    42% { transform: translate(7px, -8px); }
+    58% { transform: translate(6px, -7px); }
+  }
+
+  .eye-open { display: block; }
+  .eye-closed { display: none; }
+  .blinking .eye-open { display: none; }
+  .blinking .eye-closed { display: block; }
+
+  .pupil-l, .pupil-r {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 0.14s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #critter, #tail-rig { animation: none; }
+    .pupil-l, .pupil-r { transition: none; }
+  }
+
+  .theme-toggle {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { color: var(--ink); border-color: var(--ink-soft); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<button class="theme-toggle" id="theme-toggle" type="button">◐ theme</button>
+
+<div class="header">
+  <div class="eyebrow">Toasty — Character Lab</div>
+  <h1>The pivot to pixel SVG</h1>
+  <p class="subhead">
+    Ears fused into one silhouette, ear-inner recolored, bigger eyes, whiskers, and a belly patch.
+    Idle motion is smooth now — the crispness fix means it can move freely without softening.
+    Pupils also follow your cursor: move your mouse over the stage.
+  </p>
+</div>
+
+<div class="stage-wrap">
+  <div class="stage">
+    <span class="tick-bl"></span><span class="tick-br"></span>
+    <svg id="toasty-svg" width="240" height="220" viewBox="0 0 240 220">
+      <defs>
+        <filter id="soft-blur" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" />
+        </filter>
+      </defs>
+      <ellipse cx="105" cy="212" rx="54" ry="7" fill="#000" opacity="0.3" filter="url(#soft-blur)" />
+      <g id="pixel-cat"></g>
+    </svg>
+  </div>
+
+  <div class="placard">
+    <span class="placard-name">Toasty</span>
+    <span class="placard-tag" id="rev-tag">REV. 04 · DETAIL + LIFE</span>
+  </div>
+</div>
+
+<p class="caption">
+  Reviewing <strong>ear/eye detail, whiskers, the belly patch, and motion feel</strong>. Toggle the
+  corner button for light/dark. Petting, clicks, and drag are still the next pass.
+</p>
+
+<script>
+  (function () {
+    var svgNS = "http://www.w3.org/2000/svg";
+    var CELL = 10, COLS = 24, ROWS = 22, CENTER = 10.5;
+    function mirror(x) { return 2 * CENTER - x; }
+
+    var pixelCat = document.getElementById("pixel-cat");
+    var colorFor = { F: "var(--fur)", P: "var(--fur-paw)", M: "var(--fur-mark)", B: "var(--fur-belly)" };
+
+    function rect(x, y, fill, opacity) {
+      var r = document.createElementNS(svgNS, "rect");
+      r.setAttribute("x", x * CELL);
+      r.setAttribute("y", y * CELL);
+      r.setAttribute("width", CELL);
+      r.setAttribute("height", CELL);
+      r.setAttribute("fill", fill);
+      if (opacity) r.setAttribute("fill-opacity", opacity);
+      return r;
+    }
+
+    function addSpan(map, y, lo, hi, color) {
+      for (var x = lo; x <= hi; x++) map[x + "," + y] = color;
+    }
+    function addMirroredSpan(map, y, lo, hi, color) {
+      addSpan(map, y, lo, hi, color);
+      addSpan(map, y, mirror(hi), mirror(lo), color);
+    }
+
+    // dilate a cell map by one grid step in each direction — this is what produces the
+    // 1px outline: paint the dilated set in edge color first, then the original cells in
+    // fur color on top, leaving only the surrounding ring visible. Running this ONCE over
+    // the whole fused silhouette (body+ears+paws) is what keeps the outline seamless —
+    // giving each part its own outline pass is what made the ears look stuck-on before.
+    function dilate(map) {
+      var d = {};
+      Object.keys(map).forEach(function (key) {
+        var xy = key.split(","), x = +xy[0], y = +xy[1];
+        [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          d[(x + o[0]) + "," + (y + o[1])] = true;
+        });
+      });
+      return d;
+    }
+
+    function paintPart(target, solidMap, markMap) {
+      var outline = dilate(solidMap);
+      Object.keys(outline).forEach(function (key) {
+        var xy = key.split(",");
+        target.appendChild(rect(+xy[0], +xy[1], "var(--fur-edge)"));
+      });
+      Object.keys(solidMap).forEach(function (key) {
+        var xy = key.split(",");
+        target.appendChild(rect(+xy[0], +xy[1], colorFor[solidMap[key]]));
+      });
+      if (markMap) {
+        Object.keys(markMap).forEach(function (key) {
+          var xy = key.split(",");
+          target.appendChild(rect(+xy[0], +xy[1], colorFor[markMap[key]], 0.9));
+        });
+      }
+    }
+
+    // ---- fused silhouette: body + ears + paws in ONE map, hand-authored per row ----
+    var BODY_ROWS = [
+      [3, 8, 13], [4, 6, 15], [5, 5, 16], [6, 4, 17], [7, 4, 17], [8, 4, 17],
+      [9, 3, 18], [10, 3, 18], [11, 4, 17], [12, 3, 18], [13, 2, 19], [14, 2, 19],
+      [15, 2, 19], [16, 2, 19], [17, 3, 18], [18, 4, 17], [19, 5, 16]
+    ];
+    var silhouette = {};
+    BODY_ROWS.forEach(function (r) { addSpan(silhouette, r[0], r[1], r[2], "F"); });
+
+    // ears — two triangles fused directly into the body map (no separate outline pass)
+    var EAR_ROWS = [[0, 5, 5], [1, 4, 6], [2, 3, 7], [3, 3, 7], [4, 4, 6]];
+    EAR_ROWS.forEach(function (r) { addMirroredSpan(silhouette, r[0], r[1], r[2], "F"); });
+
+    // paws — also fused so they pick up the same outline as the body
+    [19, 20].forEach(function (y) { addMirroredSpan(silhouette, y, 6, 8, "P"); });
+
+    var marks = {};
+    // forelock — one continuous span across the centerline
+    addSpan(marks, 4, 9, 12, "M");
+    addSpan(marks, 5, 10, 11, "M");
+    // ear-inner — inset by 1 cell from the ear's own outer edge at every row, so a
+    // uniform 1px fur rim survives around a toast-filled center (not a single dot)
+    addMirroredSpan(marks, 1, 5, 5, "M");
+    addMirroredSpan(marks, 2, 4, 6, "M");
+    addMirroredSpan(marks, 3, 4, 6, "M");
+    // belly — a whisper-lighter patch inset from the outline, not a hard Doraemon white
+    [[13, 8, 13], [14, 7, 14], [15, 7, 14], [16, 7, 14], [17, 8, 13], [18, 9, 12], [19, 9, 12]]
+      .forEach(function (r) { addSpan(marks, r[0], r[1], r[2], "B"); });
+
+    var critter = document.createElementNS(svgNS, "g");
+    critter.setAttribute("id", "critter");
+    paintPart(critter, silhouette, marks);
+    pixelCat.appendChild(critter);
+
+    // ---- blush ----
+    function blushBlock(cx) {
+      for (var x = cx; x <= cx + 1; x++) for (var y = 10; y <= 11; y++) critter.appendChild(rect(x, y, "var(--blush)", 0.6));
+    }
+    blushBlock(4);
+    blushBlock(mirror(5));
+
+    // ---- eyes — bigger (3x3), open/closed variants toggled via display for an instant
+    // blink; the dark cells + highlight live in a .pupil-l/.pupil-r group so cursor
+    // tracking can nudge just the pupil without touching the rest of the sprite ----
+    function eyeGroup(cx, pupilClass) {
+      var wrap = document.createElementNS(svgNS, "g");
+      var open = document.createElementNS(svgNS, "g");
+      open.setAttribute("class", "eye-open " + pupilClass);
+      [[cx, 7], [cx + 1, 7], [cx + 2, 7], [cx, 8], [cx + 1, 8], [cx + 2, 8], [cx, 9], [cx + 1, 9], [cx + 2, 9]]
+        .forEach(function (c) { open.appendChild(rect(c[0], c[1], "var(--eye)")); });
+      open.appendChild(rect(cx, 7, "var(--eye-hi)"));
+      var closed = document.createElementNS(svgNS, "g");
+      closed.setAttribute("class", "eye-closed");
+      [cx, cx + 1, cx + 2].forEach(function (x) { closed.appendChild(rect(x, 8, "var(--fur-edge)")); });
+      wrap.appendChild(open);
+      wrap.appendChild(closed);
+      return wrap;
+    }
+    critter.appendChild(eyeGroup(6, "pupil-l"));
+    critter.appendChild(eyeGroup(13, "pupil-r"));
+
+    // ---- whiskers — free vector lines (not grid-locked), subtle so the face stays clean ----
+    var whiskerSvg = document.createElementNS(svgNS, "g");
+    whiskerSvg.setAttribute("stroke", "var(--fur-edge)");
+    whiskerSvg.setAttribute("stroke-width", "1.3");
+    whiskerSvg.setAttribute("stroke-linecap", "round");
+    whiskerSvg.setAttribute("opacity", "0.4");
+    function whisker(x1, y1, x2, y2) {
+      var l = document.createElementNS(svgNS, "line");
+      l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+      l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+      whiskerSvg.appendChild(l);
+    }
+    whisker(32, 87, 8, 82);
+    whisker(32, 97, 8, 100);
+    whisker(178, 87, 202, 82);
+    whisker(178, 97, 202, 100);
+    critter.appendChild(whiskerSvg);
+
+    // ---- tail — its own rig, sways independently of the body it's nested inside ----
+    var tail = {};
+    [[19, 14], [20, 14], [20, 13], [21, 13], [21, 12], [22, 12], [22, 11], [21, 10], [20, 10]].forEach(function (c) {
+      tail[c[0] + "," + c[1]] = "F";
+    });
+    var tailRig = document.createElementNS(svgNS, "g");
+    tailRig.setAttribute("id", "tail-rig");
+    paintPart(tailRig, tail, { "22,11": "M", "21,10": "M" });
+    pixelCat.insertBefore(tailRig, pixelCat.firstChild);
+
+    var svg = document.getElementById("toasty-svg");
+    var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function scheduleBlink() {
+      var delay = 2600 + Math.random() * 3200;
+      setTimeout(function () {
+        svg.classList.add("blinking");
+        setTimeout(function () {
+          svg.classList.remove("blinking");
+          scheduleBlink();
+        }, 130);
+      }, delay);
+    }
+
+    if (!reduceMotion) scheduleBlink();
+
+    // ---- eyes follow the cursor — cheap, and reads as far more alive than any idle loop ----
+    if (!reduceMotion) {
+      var pupilL = critter.querySelector(".pupil-l");
+      var pupilR = critter.querySelector(".pupil-r");
+      var stageEl = document.querySelector(".stage");
+      var rafPending = false;
+      function updatePupils(clientX, clientY) {
+        var box = stageEl.getBoundingClientRect();
+        var dx = (clientX - (box.left + box.width / 2)) / (box.width / 2);
+        var dy = (clientY - (box.top + box.height / 2)) / (box.height / 2);
+        dx = Math.max(-1, Math.min(1, dx));
+        dy = Math.max(-1, Math.min(1, dy));
+        var t = "translate(" + (dx * 2.2).toFixed(2) + "px," + (dy * 1.6).toFixed(2) + "px)";
+        if (pupilL) pupilL.style.transform = t;
+        if (pupilR) pupilR.style.transform = t;
+      }
+      document.addEventListener("pointermove", function (e) {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(function () {
+          updatePupils(e.clientX, e.clientY);
+          rafPending = false;
+        });
+      });
+    }
+
+    var toggle = document.getElementById("theme-toggle");
+    var root = document.documentElement;
+    toggle.addEventListener("click", function () {
+      var current = root.getAttribute("data-theme");
+      var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var next;
+      if (!current) next = prefersDark ? "light" : "dark";
+      else next = current === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+    });
+  })();
+</script>
