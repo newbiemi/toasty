@@ -1,9 +1,10 @@
 // Generates resources/icon.png (512), resources/icon.ico (16/32/48/256), and
-// resources/tray.png (32) — Toasty's head, rasterized from the SAME cell data
-// as CatSvg.tsx's head variant (buildSilhouetteAndMarks + HEAD_MAX_ROW=11
-// filter). Duplicated here (not imported) because this is a plain Node
-// script with no TS/bundler step — if the head shape in CatSvg.tsx changes,
-// mirror the change in buildHeadCells() below and rerun `npm run icons`.
+// resources/tray.png (32) — Toasty's head, rasterized DIRECTLY from the
+// canonical painted grid (cat-lab/toasty-cat-grid.json, the same data
+// CatSvg.tsx renders via renderer/lib/toastyCatGrid.ts). No hand-mirrored
+// cell data anymore: if the character changes, update the JSON, regenerate
+// the renderer module, and rerun `npm run icons` — this script re-crops the
+// head automatically.
 //
 // Pure Node (fs + zlib only) — deliberately no `sharp`/`canvas`/`png-to-ico`
 // dependency, matching the project's $0-cost, minimal-deps preference.
@@ -12,90 +13,46 @@ const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
 
-const CENTER = 10.5;
-const mirror = (x) => 2 * CENTER - x;
+// rows 2-22 AND cols <= 34 are the head — the tail tip also rises into rows
+// 18-22 further right, so the crop needs both bounds. Keep in sync with CatSvg.tsx.
+const HEAD_MAX_ROW = 22;
+const HEAD_MAX_COL = 34;
 
-function addSpan(map, y, lo, hi, color) {
-  for (let x = lo; x <= hi; x++) map[`${x},${y}`] = color;
-}
-function addMirroredSpan(map, y, lo, hi, color) {
-  addSpan(map, y, lo, hi, color);
-  addSpan(map, y, mirror(hi), mirror(lo), color);
-}
-function dilate(map) {
-  const d = {};
-  for (const key of Object.keys(map)) {
+function loadHeadGrid() {
+  const raw = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "..", "cat-lab", "toasty-cat-grid.json"), "utf8")
+  );
+  const head = {};
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const key of Object.keys(raw.cells)) {
     const [x, y] = key.split(",").map(Number);
-    for (const [ox, oy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) d[`${x + ox},${y + oy}`] = true;
+    if (y > HEAD_MAX_ROW || x > HEAD_MAX_COL) continue;
+    head[key] = raw.cells[key];
+    if (x < xmin) xmin = x;
+    if (x > xmax) xmax = x;
+    if (y < ymin) ymin = y;
+    if (y > ymax) ymax = y;
   }
-  return d;
+  // fit the head into a square local grid, centered, 1 cell of padding
+  const w = xmax - xmin + 1, h = ymax - ymin + 1;
+  const GRID = Math.max(w, h) + 2;
+  const colOff = xmin - Math.floor((GRID - w) / 2);
+  const rowOff = ymin - Math.floor((GRID - h) / 2);
+  const grid = Array.from({ length: GRID }, () => new Array(GRID).fill(null));
+  for (const key of Object.keys(head)) {
+    const [x, y] = key.split(",").map(Number);
+    const lc = x - colOff, lr = y - rowOff;
+    if (lc >= 0 && lc < GRID && lr >= 0 && lr < GRID) grid[lr][lc] = head[key];
+  }
+  return { grid, GRID };
 }
 
-// Mirrors CatSvg.tsx buildSilhouetteAndMarks() — ears + face rows only
-// (rows > 11 are belly/paws/tail, not part of the head).
-function buildHeadCells() {
-  const silhouette = {};
-  const BODY_ROWS = [
-    [3, 8, 13], [4, 6, 15], [5, 5, 16], [6, 4, 17], [7, 4, 17], [8, 4, 17],
-    [9, 3, 18], [10, 3, 18], [11, 4, 17],
-  ];
-  BODY_ROWS.forEach(([y, lo, hi]) => addSpan(silhouette, y, lo, hi, "F"));
-  const EAR_ROWS = [[0, 5, 5], [1, 4, 6], [2, 3, 7], [3, 3, 7], [4, 4, 6]];
-  EAR_ROWS.forEach(([y, lo, hi]) => addMirroredSpan(silhouette, y, lo, hi, "F"));
-
-  const marks = {};
-  addSpan(marks, 4, 9, 12, "M");
-  addSpan(marks, 5, 10, 11, "M");
-  addMirroredSpan(marks, 1, 5, 5, "M");
-  addMirroredSpan(marks, 2, 4, 6, "M");
-  addMirroredSpan(marks, 3, 4, 6, "M");
-
-  return { silhouette, marks };
-}
-
-const COLORS = {
-  fur: "#f5e6d3",
-  edge: "#5b4636",
-  mark: "#e8a87c",
-  blush: "#f7b7c4",
-  eye: "#3a2e28",
-  eyeHi: "#fffaf0",
-};
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-// Local square grid: origCol 3..18 -> localCol 0..15; origRow -2..13 -> localRow 0..15
-// (2 rows of padding above/below so the 16-col x 12-row head content sits in a square grid).
-const COL_OFFSET = 3, ROW_OFFSET = -2, GRID = 16;
-
-function buildGridPixels() {
-  const { silhouette, marks } = buildHeadCells();
-  const outline = dilate(silhouette);
-  const grid = Array.from({ length: GRID }, () => new Array(GRID).fill(null));
-
-  const setLocal = (origCol, origRow, hex) => {
-    const lc = origCol - COL_OFFSET, lr = origRow - ROW_OFFSET;
-    if (lc < 0 || lc >= GRID || lr < 0 || lr >= GRID) return;
-    grid[lr][lc] = hex;
-  };
-
-  Object.keys(outline).forEach((k) => { const [x, y] = k.split(",").map(Number); setLocal(x, y, COLORS.edge); });
-  Object.keys(silhouette).forEach((k) => { const [x, y] = k.split(",").map(Number); setLocal(x, y, COLORS.fur); });
-  Object.keys(marks).forEach((k) => { const [x, y] = k.split(",").map(Number); setLocal(x, y, COLORS.mark); });
-
-  for (const cx of [4, 16]) for (let x = cx; x <= cx + 1; x++) for (let y = 10; y <= 11; y++) setLocal(x, y, COLORS.blush);
-
-  for (const cx of [6, 13]) {
-    for (const [x, y] of [[cx, 7], [cx + 1, 7], [cx + 2, 7], [cx, 8], [cx + 1, 8], [cx + 2, 8], [cx, 9], [cx + 1, 9], [cx + 2, 9]])
-      setLocal(x, y, COLORS.eye);
-    setLocal(cx, 7, COLORS.eyeHi);
-  }
-  return grid;
-}
-
-function rasterize(grid, size) {
+function rasterize(grid, GRID, size) {
   const rgba = new Uint8Array(size * size * 4);
   for (let py = 0; py < size; py++) {
     const row = Math.min(GRID - 1, Math.floor((py / size) * GRID));
@@ -184,16 +141,16 @@ function encodeICO(sizes, pngBuffers) {
 function main() {
   const outDir = path.join(__dirname, "..", "resources");
   fs.mkdirSync(outDir, { recursive: true });
-  const grid = buildGridPixels();
+  const { grid, GRID } = loadHeadGrid();
 
   const icoSizes = [16, 32, 48, 256];
-  const icoPngs = icoSizes.map((s) => encodePNG(rasterize(grid, s), s));
+  const icoPngs = icoSizes.map((s) => encodePNG(rasterize(grid, GRID, s), s));
   fs.writeFileSync(path.join(outDir, "icon.ico"), encodeICO(icoSizes, icoPngs));
 
-  fs.writeFileSync(path.join(outDir, "icon.png"), encodePNG(rasterize(grid, 512), 512));
-  fs.writeFileSync(path.join(outDir, "tray.png"), encodePNG(rasterize(grid, 32), 32));
+  fs.writeFileSync(path.join(outDir, "icon.png"), encodePNG(rasterize(grid, GRID, 512), 512));
+  fs.writeFileSync(path.join(outDir, "tray.png"), encodePNG(rasterize(grid, GRID, 32), 32));
 
-  console.log("Wrote resources/icon.ico, resources/icon.png (512), resources/tray.png (32)");
+  console.log(`Wrote resources/icon.ico, resources/icon.png (512), resources/tray.png (32) — head grid ${GRID}x${GRID}`);
 }
 
 main();
