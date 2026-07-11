@@ -36,8 +36,22 @@ cat-lab/
   toasty-cat-grid.json      # CANONICAL character data (Phase 12) — 60×58 hex-color cell grid,
                             # painted by Fahmi in the A1/A2 pixel-editor artifacts. Feeds
                             # renderer/lib/toastyCatGrid.ts (regenerate on change) AND
-                            # scripts/generate-icons.js (reads it directly).
+                            # scripts/generate-icons.js (reads it directly). READ-ONLY.
   toasty-head-grid.json     # A1 head-only approval record (subset of the full grid)
+  toasty-faces-grid.json    # CANONICAL expression data (Phase 13) — 4 static head variants
+                            # (smile/curious/startled/grumpy), painted by Fahmi in the A3
+                            # editor over the head region only (y<=22, x<=34). Feeds
+                            # renderer/lib/toastyFaces.ts (regenerate on change). READ-ONLY.
+  toasty-motion.json        # CANONICAL motion params (Phase 13) — timing/amplitude for
+                            # breathe/bounce/jump/squash/purr/scrunch/settle/petting-detector,
+                            # tuned by Fahmi in the toasty-motion-lab artifact and accepted
+                            # as the published defaults. Transcribed by hand into the `MOTION`
+                            # const + CAT_CSS keyframes in renderer/components/CatSvg.tsx —
+                            # edit here, then re-transcribe both places. READ-ONLY otherwise.
+  tools/
+    pixel-editor-a2-reference.html # Reference copy of the A2 body-editor artifact (paint/
+                            # erase/pick/ghost/undo/localStorage/export) — template for
+                            # future pixel-editor rounds so they don't depend on temp files.
   toasty-svg-playground.html # Character lab, REV.07 — renders the canonical grid with the
                             # motion rig; the design-iteration surface before app changes
   shutterstock_images/      # Reference screenshots the character was designed against
@@ -69,6 +83,9 @@ renderer/
     toastyCatGrid.ts  # AUTO-GENERATED from cat-lab/toasty-cat-grid.json — the character's
                       # cell data + eye boxes consumed by CatSvg.tsx. Do not hand-edit;
                       # regenerate when the canonical JSON changes.
+    toastyFaces.ts    # AUTO-GENERATED from cat-lab/toasty-faces-grid.json (Phase 13) — the
+                      # 4 expression variants (smile/curious/startled/grumpy) consumed by
+                      # CatSvg.tsx. Do not hand-edit; regenerate when the canonical JSON changes.
   pages/
     _document.tsx     # Global dark theme CSS (no Google Fonts — fully offline)
     _app.tsx          # Minimal Next.js App wrapper
@@ -76,18 +93,40 @@ renderer/
     pet.tsx           # Transparent pet-overlay, fixed 340×300 canvas (cat + optional side menu);
                       # single-click→toggle MenuPanel, double-click→dashboard; click-through via
                       # elementFromPoint DOM hit-testing (data-cat-hit/data-menu-hit/data-min-btn),
-                      # not canvas alpha-sampling (CatSvg has no rasterized frame to sample)
+                      # not canvas alpha-sampling (CatSvg has no rasterized frame to sample).
+                      # Phase 13: computes CatSvg's `interaction` + `expression` props locally
+                      # (renderer-local by design — main/ is untouched this phase). Petting is
+                      # a sideways stroke-direction-flip detector on the existing mousemove
+                      # listener (MOTION.petting thresholds); tap sets "tapped" for
+                      # MOTION.squash.ms from handleCatClick's single-click branch; dragging
+                      # flips "dragging" the moment a real drag is detected (existing >3px
+                      # threshold) and clears to a 2s `postDragGrumpy` flag on mouseup.
+                      # Expression priority: alert→startled, postDragGrumpy→grumpy,
+                      # (petting or happy)→smile, (hovered && idle)→curious, else none.
     capture.tsx       # Slim frameless quick-capture box — paste task, auto-close after add; 💬 button opens chat
     chat.tsx          # Floating 360×460 chat window — multi-turn Ollama /api/chat; drag header + X close
   components/
     CatSvg.tsx        # Inline pixel-grid SVG cat — Phase 12: renders Fahmi's hand-painted grid
                       # (renderer/lib/toastyCatGrid.ts) instead of a generated silhouette.
                       # `full` variant (pet window: whole cat, blink scheduler, cursor-tracking
-                      # eye groups, breathe/bounce/shake per cat state) and `head` variant
+                      # eye groups, breathe/bounce/jump per cat state) and `head` variant
                       # (dot-mode icon; rows<=HEAD_MAX_ROW=22 AND cols<=HEAD_MAX_COL=34 — the
                       # tail tip rises into head rows, so the crop needs both bounds; bounds
                       # mirrored in scripts/generate-icons.js). No whiskers/tail rig — the
                       # painted art fuses the tail into the body outline.
+                      # Phase 13: `expression` prop (smile/curious/startled/grumpy/null) swaps
+                      # a static painted face group over the default blink/eye-track rig via
+                      # CSS `expr-*` class — full variant only, head variant is always default.
+                      # `interaction` prop ("petting"|"tapped"|"dragging"|null, driven by
+                      # pet.tsx) adds an `int-*` class that plays purr/squash/scrunch motion;
+                      # `int-settling` is a one-shot echo CatSvg applies itself when
+                      # `interaction` drops out of "dragging" (not settable from outside).
+                      # `state-alert` now plays a jump-and-land arc (`t-jump`), replacing the
+                      # old shake. All motion timing/amplitude lives in the exported `MOTION`
+                      # const, transcribed from cat-lab/toasty-motion.json — every `int-*`
+                      # rule must explicitly set `animation:` (even `none`) because breathe's
+                      # animation is on the base `.critter` rule and always running; a rule
+                      # that only sets a static `transform` gets silently overridden by it.
     MenuPanel.tsx     # comnyang-style side panel docked beside the cat in pet.tsx (drags with it for
                       # free): left icon rail + 4 sections (Tasks/Add/Chat/Settings), each wired to
                       # real window.toasty IPC — not separate windows
@@ -172,6 +211,17 @@ Mirrors the old Supabase schema but in **camelCase columns** (no snake_case mapp
 - **Phase 10** ✓ — Stability rebuild: boot-error fix (NSIS `customUnInstall` removes Run entry on uninstall) · AI de-freeze (Ollama removed from parse/adjust hot path) · Groq cloud provider (`providers/groq.ts`) as primary AI for parse+chat+adjust · deterministic rule parser (`parseRules.ts`) as offline/no-key fallback for capture (instant, zero CPU, never freezes) · Groq anti-hallucination cross-check (rule parser validates dates/times/links against source text) · shared helpers extracted to `dateUtils.ts` + `aiShared.ts` · Groq key input in Settings panel · AI status indicator updated (GROQ chip when key set, OLLAMA when fallback) · version bump `0.3.0→0.4.0`
 - **Phase 11** ✓ — SVG pixel-cat character lab (hand-drawn grid sprite, cursor eye-tracking, idle motion — prototyped in `cat-lab/toasty-svg-playground.html`, REV.04 approved) ported into the app as `CatSvg.tsx`, replacing the PNG sprite on the pet overlay · comnyang-style `MenuPanel.tsx` side panel (Tasks/Add/Chat/Settings) docked beside the cat inside the same window instead of spawning separate capture/chat windows · pet window canvas enlarged to a fixed `PET_W×PET_H` (340×300) to hold cat+menu without fighting the size-lock, while `PET_CAT` (88) stays the drag/clamp basis so the cat still reaches every screen edge · click-through rewritten from offscreen-canvas alpha-sampling to `elementFromPoint` DOM hit-testing (`data-cat-hit`/`data-menu-hit`/`data-min-btn`) since the SVG has no rasterized frame to sample · app/tray icons generated from the same cell data via `scripts/generate-icons.js` (`npm run icons`)
 - **Phase 12** ✓ — Character redesign, painted by Fahmi: white meme-cat (refs in `cat-lab/shutterstock_images/`; head from the "smudge cat" bust, body from the sitting-tabby pose) built through **collaborative pixel-editor artifacts** — Claude seeded a canvas by pixel-sampling the reference photos, Fahmi painted/corrected the cells himself and exported the grid back (this workflow replaced two rejected present-and-iterate REVs and is the preferred pattern for future taste-driven design) · canonical data = `cat-lab/toasty-cat-grid.json` (60×58 hex-cell grid) → generated `renderer/lib/toastyCatGrid.ts` → rendered by a rewritten data-driven `CatSvg.tsx` (REV.07, playground-approved) · eye clusters auto-detected from the grid (interior dark components) drive the blink + cursor-tracking rig; approved motion = idle breathe, scheduled blink, pupil tracking (state anims kept: bounce/shake/slow-breathe) · tail is fused into the painted outline — no independent tail rig; revisit in the interactive-motion pass (pet/click/drag/jump still pending as Phase C of the redesign plan) · `generate-icons.js` rewritten to read the canonical JSON (head crop rows≤22, cols≤34) — icons regenerated · version note: character is data now; changing the look = repaint the grid (A2 editor artifact), re-export, regenerate module + icons
+- **Phase 13** ✓ — Expressions + interactive motion, both hand-tuned by Fahmi via a second and third collaborative artifact round (extending the Phase 12 pattern beyond pixel art): (1) **expressions** — 4 static head variants (smile/curious/startled/grumpy) painted in a new A3 4-tab editor seeded from the head region of the canonical grid; canonical = `cat-lab/toasty-faces-grid.json` → generated `renderer/lib/toastyFaces.ts` → `CatSvg.tsx`'s `buildCat()` split into a `torso` group (unaffected) + one `face-<name>` group per variant, toggled by a new `expression` prop via CSS `expr-*` classes, default face (the live blink/eye-track rig) unless overridden; (2) **motion** — a `toasty-motion-lab.html` artifact (sliders driving CSS custom properties live, trigger buttons per motion, expression+motion combo preview) tuned by Fahmi, who accepted the published defaults as-is ("no need to tune anything... probably will use it for future projects as well" — the tunable-parameter-lab pattern is now a sibling to the pixel-editor pattern for taste/feel work); canonical = `cat-lab/toasty-motion.json` → hand-transcribed into the `MOTION` const + `CAT_CSS` keyframes in `CatSvg.tsx`; new `interaction` prop (`"petting"|"tapped"|"dragging"|null`) computed renderer-locally in `pet.tsx` (petting = sideways stroke-flip detector, tap = single-click squash, drag = existing >3px-move threshold) drives `int-*` classes; `state-alert`'s old shake replaced by a jump-and-land arc; `int-settling` is a one-shot echo `CatSvg` plays itself after a drag ends · **gotcha hit and fixed during this phase**: an `int-*` rule that only sets a static `transform` (no `animation:`) gets silently overridden by breathe's always-on base animation — every `int-*` rule must set `animation:` explicitly, even `animation: none` · **verification gap**: CSS motion (`animationName` per `int-*` class) was verified live; the `pet.tsx` event-driven wiring (flip-detector → petting, drag → dragging, tap timing, expression priority) was code-reviewed but not driven end-to-end — it's gated behind `window.toasty` (absent in a bare Chrome tab) and the real Electron pet window is `alwaysOnTop`, which occludes automated test tabs. Fahmi should do one live pass in the actual app (stroke the cat, tap it, drag it, wait for a reminder alert) before calling this phase fully closed.
+
+## Repo sync
+This monorepo path (`personal_projects/pet_assistant/toasty/`) is canonical. It also mirrors to a
+standalone repo, `github.com/newbiemi/toasty`, via `git subtree split` (keeps full history, doesn't
+touch the monorepo working copy):
+```bash
+git subtree split -P personal_projects/pet_assistant/toasty -b toasty-split
+git push https://github.com/newbiemi/toasty.git toasty-split:main
+```
+Ask before pushing; the mirror push is a separate step from committing to the monorepo.
 
 ## Dev Commands
 ```bash
