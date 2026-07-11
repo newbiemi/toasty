@@ -33,18 +33,38 @@ import { FACE_VARIANTS, type FaceExpression } from "../lib/toastyFaces";
  * this revision.
  */
 
-/* values from cat-lab/toasty-motion.json (Fahmi-tuned, accepted as defaults
+/* values from cat-lab/toasty-motion.json (Fahmi-tuned via the motion lab,
    2026-07-11) — edit the JSON, re-transcribe both here and in CAT_CSS below. */
 export const MOTION = {
-  breathe: { periodMs: 4000, scaleY: 1.018 },
+  breathe: { periodMs: 1600, scaleY: 1.018 },
   bounce: { periodMs: 600, px: 10 },
-  jump: { heightPx: 22, periodMs: 700, repeats: 2, squashLand: 0.94 },
+  jump: { heightPx: 40, periodMs: 470, repeats: 2, squashLand: 0.91 },
   squash: { scaleX: 1.06, scaleY: 0.92, ms: 180 },
-  purr: { amp: 1.2, periodMs: 320 },
+  purr: { amp: 2.8, periodMs: 320 },
   scrunch: { scale: 0.94, rotateDeg: -3 },
   settle: { ms: 260, overshoot: 1.03 },
   petting: { flipsToTrigger: 4, windowMs: 1000, holdMs: 900 },
+  /* thinking-dots row painted onto the curious face (cat-lab/toasty-faces-grid.json,
+     2026-07-11) — 5 dot cells split by x-range in buildCat() and staggered via
+     per-element animation-delay = staggerMs * index. */
+  thinkDots: { staggerMs: 500, pulseMs: 1500 },
 } as const;
+
+// Exact cells of the 5 painted dot blobs on the curious face (cat-lab/toasty-faces-grid.json).
+// Not a y<=3 heuristic — the base head has legitimate ear-tip cells up there too
+// (e.g. "11,3"), so the dot set must be the literal painted coordinates.
+const DOT_CELLS = new Set([
+  "7,0", "8,0", "9,0", "10,0", "11,0", "12,0", "13,0", "14,0", "15,0", "16,0",
+  "17,0", "18,0", "19,0", "20,0", "21,0", "22,0", "23,0", "24,0", "25,0", "26,0",
+  "7,1", "8,1", "9,1", "10,1", "11,1", "12,1", "13,1", "14,1", "15,1", "16,1",
+  "17,1", "18,1", "19,1", "20,1", "21,1", "22,1", "23,1", "24,1", "25,1", "26,1",
+  "7,2", "8,2", "9,2", "10,2", "11,2", "12,2", "13,2", "14,2", "15,2", "16,2",
+  "17,2", "18,2", "19,2", "20,2", "21,2", "22,2", "23,2", "24,2", "25,2", "26,2",
+  "9,3", "10,3", "14,3", "15,3", "16,3", "17,3", "18,3", "19,3", "20,3", "21,3",
+  "22,3", "23,3", "24,3",
+]);
+// x-ranges (inclusive) bucketing DOT_CELLS into 5 separate blobs for staggered timing.
+const DOT_X_RANGES: Array<[number, number]> = [[7, 10], [11, 14], [15, 18], [19, 22], [23, 26]];
 
 const svgNS = "http://www.w3.org/2000/svg";
 const CELL = 10;
@@ -134,10 +154,36 @@ function buildCat(critterGroup: SVGGElement, variant: "full" | "head") {
       const g = document.createElementNS(svgNS, "g");
       g.setAttribute("class", `face face-${name}`);
       const cells = FACE_VARIANTS[name];
-      Object.keys(cells).forEach((key) => {
-        const [x, y] = key.split(",").map(Number);
-        g.appendChild(rect(x, y, cells[key]));
-      });
+
+      if (name === "curious") {
+        // Split the painted thinking-dots row (y<=DOT_ROW_MAX_Y) into 5
+        // sub-groups by x-range so each can pulse on its own staggered delay;
+        // everything else in the face is one static base group.
+        const base = document.createElementNS(svgNS, "g");
+        base.setAttribute("class", "dots-base");
+        const dotGroups = DOT_X_RANGES.map((_, i) => {
+          const dg = document.createElementNS(svgNS, "g");
+          dg.setAttribute("class", `dot-${i + 1}`);
+          dg.style.animationDelay = `${i * MOTION.thinkDots.staggerMs}ms`;
+          return dg;
+        });
+        Object.keys(cells).forEach((key) => {
+          const [x, y] = key.split(",").map(Number);
+          if (DOT_CELLS.has(key)) {
+            const idx = DOT_X_RANGES.findIndex(([lo, hi]) => x >= lo && x <= hi);
+            if (idx >= 0) { dotGroups[idx].appendChild(rect(x, y, cells[key])); return; }
+          }
+          base.appendChild(rect(x, y, cells[key]));
+        });
+        g.appendChild(base);
+        dotGroups.forEach((dg) => g.appendChild(dg));
+      } else {
+        Object.keys(cells).forEach((key) => {
+          const [x, y] = key.split(",").map(Number);
+          g.appendChild(rect(x, y, cells[key]));
+        });
+      }
+
       critterGroup.appendChild(g);
     });
   }
@@ -278,11 +324,11 @@ const CAT_CSS = `
   shape-rendering: crispEdges;
 }
 
-.toasty-cat .critter { transform-box: view-box; transform-origin: 300px 570px; animation: t-breathe 4s ease-in-out infinite; }
+.toasty-cat .critter { transform-box: view-box; transform-origin: 300px 570px; animation: t-breathe 1600ms ease-in-out infinite; }
 .toasty-cat.state-thinking .critter { animation: t-breathe-slow 6s ease-in-out infinite; }
 .toasty-cat.state-sleep .critter { animation: t-breathe-slow 7s ease-in-out infinite; }
 .toasty-cat.state-happy .critter { animation: t-bounce 0.6s ease-in-out infinite; }
-.toasty-cat.state-alert .critter { animation: t-jump 700ms ease-in-out 2; }
+.toasty-cat.state-alert .critter { animation: t-jump 470ms ease-in-out 2; }
 
 /* Interactive motion (Phase 13) — pet/tap/drag, tuned in the motion-lab
    artifact (cat-lab/toasty-motion.json). int-settling is a one-shot echo
@@ -298,8 +344,8 @@ const CAT_CSS = `
 @keyframes t-bounce { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
 @keyframes t-jump {
   0%, 100% { transform: translateY(0px) scaleY(1); }
-  35% { transform: translateY(-22px) scaleY(1.02); }
-  70% { transform: translateY(0px) scaleY(0.94); }
+  35% { transform: translateY(-40px) scaleY(1.02); }
+  70% { transform: translateY(0px) scaleY(0.91); }
   85% { transform: translateY(0px) scaleY(1.01); }
 }
 @keyframes t-squash {
@@ -307,7 +353,7 @@ const CAT_CSS = `
   40% { transform: scale(1.06, 0.92); }
   100% { transform: scale(1,1); }
 }
-@keyframes t-purr { 0%, 100% { transform: translateX(0px); } 50% { transform: translateX(1.2px); } }
+@keyframes t-purr { 0%, 100% { transform: translateX(0px); } 50% { transform: translateX(2.8px); } }
 @keyframes t-settle {
   0% { transform: scale(0.94) rotate(-3deg); }
   55% { transform: scale(1.03) rotate(0deg); }
@@ -335,6 +381,18 @@ const CAT_CSS = `
 .toasty-cat.expr-grumpy .face-default { display: none; }
 .toasty-cat.expr-grumpy .face-grumpy { display: block; }
 
+/* Thinking-dots row painted onto the curious face — pulses whenever curious
+   is shown (no separate trigger; display:none pauses/resets the animation
+   on the other 4 faces for free). Stagger comes from the per-group
+   animation-delay set in buildCat(), not from CSS. */
+.toasty-cat .face-curious .dot-1, .toasty-cat .face-curious .dot-2,
+.toasty-cat .face-curious .dot-3, .toasty-cat .face-curious .dot-4,
+.toasty-cat .face-curious .dot-5 {
+  transform-box: fill-box; transform-origin: center;
+  animation: t-think-dot 1500ms ease-in-out infinite;
+}
+@keyframes t-think-dot { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.05); } }
+
 .toasty-cat .pupil-l, .toasty-cat .pupil-r { transform-box: fill-box; transform-origin: center; transition: transform 0.14s ease-out; }
 .toasty-cat.state-sleep .pupil-l, .toasty-cat.state-sleep .pupil-r { transition: none; }
 
@@ -346,5 +404,8 @@ const CAT_CSS = `
   .toasty-cat .critter { animation: none !important; transform: none !important; }
   .toasty-cat .pupil-l, .toasty-cat .pupil-r { transition: none !important; }
   .toasty-cat .state-fx-text.heart-pulse { animation: none !important; }
+  .toasty-cat .face-curious .dot-1, .toasty-cat .face-curious .dot-2,
+  .toasty-cat .face-curious .dot-3, .toasty-cat .face-curious .dot-4,
+  .toasty-cat .face-curious .dot-5 { animation: none !important; opacity: 1 !important; }
 }
 `;

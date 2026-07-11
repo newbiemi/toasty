@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "breathe": { "periodMs": 4000, "scaleY": 1.018 },
+  "breathe": { "periodMs": 1600, "scaleY": 1.018 },
   "bounce": { "periodMs": 600, "px": 10 },
-  "jump": { "heightPx": 22, "periodMs": 700, "repeats": 2, "squashLand": 0.94 },
+  "jump": { "heightPx": 40, "periodMs": 470, "repeats": 2, "squashLand": 0.91 },
   "squash": { "scaleX": 1.06, "scaleY": 0.92, "ms": 180 },
-  "purr": { "amp": 1.2, "periodMs": 320 },
+  "purr": { "amp": 2.8, "periodMs": 320 },
   "scrunch": { "scale": 0.94, "rotateDeg": -3 },
   "settle": { "ms": 260, "overshoot": 1.03 },
-  "petting": { "flipsToTrigger": 4, "windowMs": 1000, "holdMs": 900 }
+  "petting": { "flipsToTrigger": 4, "windowMs": 1000, "holdMs": 900 },
+  "thinkDots": { "staggerMs": 500, "pulseMs": 1500 }
 }
