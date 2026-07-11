@@ -7,6 +7,5 @@
   "purr": { "amp": 2.8, "periodMs": 320 },
   "scrunch": { "scale": 0.94, "rotateDeg": -3 },
   "settle": { "ms": 260, "overshoot": 1.03 },
-  "petting": { "flipsToTrigger": 4, "windowMs": 1000, "holdMs": 900 },
-  "thinkDots": { "staggerMs": 500, "pulseMs": 1500 }
+  "petting": { "flipsToTrigger": 4, "windowMs": 1000, "holdMs": 900 }
 }
