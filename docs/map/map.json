@@ -275,7 +275,7 @@
     },
     "routes": {
       "routes": [],
-      "router": "app",
+      "router": "none",
       "route_count": 0,
       "page_count": 0,
       "api_count": 0,

@@ -106,7 +106,7 @@ _no tables found_
 <details>
 <summary>Routes</summary>
 
-_no routes found_
+_no App Router detected (no `app/` or `src/app/`)_
 
 </details>
 
