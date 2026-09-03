@@ -1,0 +1,352 @@
+{
+  "schema_version": 1,
+  "generator": "projmap/0.1.0",
+  "project": {
+    "slug": "personal_projects/pet_assistant/toasty",
+    "name": "toasty",
+    "root": "personal_projects/pet_assistant/toasty",
+    "shape": "nextjs",
+    "signals": [
+      "nextjs"
+    ]
+  },
+  "layers": {
+    "structure": {
+      "language_counts": {
+        "js": 5,
+        "py": 1,
+        "ts": 18,
+        "tsx": 10
+      },
+      "node_count_total": 34,
+      "node_count_kept": 25,
+      "omitted_nodes": 9,
+      "nodes": [
+        {
+          "path": "main/settings",
+          "lang": "ts",
+          "fan_in": 4,
+          "fan_out": 0
+        },
+        {
+          "path": "main/dateUtils",
+          "lang": "ts",
+          "fan_in": 3,
+          "fan_out": 0
+        },
+        {
+          "path": "main/db",
+          "lang": "ts",
+          "fan_in": 3,
+          "fan_out": 0
+        },
+        {
+          "path": "main/aiShared",
+          "lang": "ts",
+          "fan_in": 2,
+          "fan_out": 1
+        },
+        {
+          "path": "main/parseRules",
+          "lang": "ts",
+          "fan_in": 2,
+          "fan_out": 2
+        },
+        {
+          "path": "main/windows",
+          "lang": "ts",
+          "fan_in": 2,
+          "fan_out": 1
+        },
+        {
+          "path": "renderer/lib/toastyFaces",
+          "lang": "ts",
+          "fan_in": 2,
+          "fan_out": 0
+        },
+        {
+          "path": "main/ai",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 5
+        },
+        {
+          "path": "main/providers/groq",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 4
+        },
+        {
+          "path": "main/updater",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
+          "path": "renderer/components/Cat",
+          "lang": "tsx",
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        {
+          "path": "renderer/components/CatSvg",
+          "lang": "tsx",
+          "fan_in": 1,
+          "fan_out": 2
+        },
+        {
+          "path": "renderer/components/MenuPanel",
+          "lang": "tsx",
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        {
+          "path": "renderer/components/TaskDashboard",
+          "lang": "tsx",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
+          "path": "renderer/lib/toastyCatGrid",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        {
+          "path": "renderer/types/task",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        {
+          "path": "app/background",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "app/preload",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "cat-lab/tools/build_body_editor_reference",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "main/background",
+          "lang": "ts",
+          "fan_in": 0,
+          "fan_out": 5
+        },
+        {
+          "path": "main/preload",
+          "lang": "ts",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "next-env.d",
+          "lang": "ts",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "renderer/lib/taskFromParsed",
+          "lang": "ts",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "renderer/next-env.d",
+          "lang": "ts",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "renderer/next.config",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        }
+      ],
+      "edge_count_total": 27,
+      "edge_count_kept": 22,
+      "omitted_edges": 5,
+      "edges": [
+        {
+          "from": "main/ai",
+          "to": "main/dateUtils"
+        },
+        {
+          "from": "main/ai",
+          "to": "main/db"
+        },
+        {
+          "from": "main/ai",
+          "to": "main/parseRules"
+        },
+        {
+          "from": "main/ai",
+          "to": "main/providers/groq"
+        },
+        {
+          "from": "main/ai",
+          "to": "main/settings"
+        },
+        {
+          "from": "main/aiShared",
+          "to": "main/db"
+        },
+        {
+          "from": "main/background",
+          "to": "main/ai"
+        },
+        {
+          "from": "main/background",
+          "to": "main/db"
+        },
+        {
+          "from": "main/background",
+          "to": "main/settings"
+        },
+        {
+          "from": "main/background",
+          "to": "main/updater"
+        },
+        {
+          "from": "main/background",
+          "to": "main/windows"
+        },
+        {
+          "from": "main/parseRules",
+          "to": "main/aiShared"
+        },
+        {
+          "from": "main/parseRules",
+          "to": "main/dateUtils"
+        },
+        {
+          "from": "main/providers/groq",
+          "to": "main/aiShared"
+        },
+        {
+          "from": "main/providers/groq",
+          "to": "main/dateUtils"
+        },
+        {
+          "from": "main/providers/groq",
+          "to": "main/parseRules"
+        },
+        {
+          "from": "main/providers/groq",
+          "to": "main/settings"
+        },
+        {
+          "from": "main/updater",
+          "to": "main/windows"
+        },
+        {
+          "from": "main/windows",
+          "to": "main/settings"
+        },
+        {
+          "from": "renderer/components/CatSvg",
+          "to": "renderer/lib/toastyCatGrid"
+        },
+        {
+          "from": "renderer/components/CatSvg",
+          "to": "renderer/lib/toastyFaces"
+        },
+        {
+          "from": "renderer/components/TaskDashboard",
+          "to": "renderer/components/Cat"
+        }
+      ]
+    },
+    "data_model": {
+      "sources": [],
+      "table_count": 0,
+      "tables": [],
+      "enums": []
+    },
+    "routes": {
+      "routes": [],
+      "router": "app",
+      "route_count": 0,
+      "page_count": 0,
+      "api_count": 0,
+      "omitted_routes": 0,
+      "middleware": "",
+      "layouts": []
+    },
+    "process_flow": {
+      "flows": [],
+      "flow_count_total": 0,
+      "flow_count_kept": 0,
+      "omitted_flows": 0
+    },
+    "design": {
+      "tailwind_version": "",
+      "config_file": "",
+      "css_files": [],
+      "tokens": [],
+      "token_count_total": 0,
+      "omitted_tokens": 0,
+      "fonts": [],
+      "components": [
+        "renderer/components/Cat.tsx",
+        "renderer/components/CatSvg.tsx",
+        "renderer/components/MenuPanel.tsx",
+        "renderer/components/TaskDashboard.tsx"
+      ],
+      "component_count_total": 4,
+      "omitted_components": 0
+    },
+    "services": {
+      "env_vars": [
+        "NODE_ENV",
+        "OLLAMA_URL",
+        "SUPABASE_KEY",
+        "SUPABASE_TABLE",
+        "SUPABASE_URL",
+        "example"
+      ],
+      "env_var_count_total": 6,
+      "omitted_env_vars": 0,
+      "detected": [
+        {
+          "name": "Supabase",
+          "via": [
+            "env"
+          ]
+        }
+      ]
+    },
+    "build_state": {
+      "claude_md": "CLAUDE.md",
+      "phases": [],
+      "checkbox_total": 0,
+      "checkbox_done": 0,
+      "checklists": [],
+      "decisions": [
+        "context/decisions/2026-06-17-toasty-chat-window-approach.md"
+      ],
+      "decision_count_total": 1,
+      "omitted_decisions": 0,
+      "todo_count": 8
+    },
+    "cross_project": {
+      "status": "pending",
+      "note": "computed at the portfolio root; see Phase 5"
+    }
+  },
+  "truncated": {
+    "modules": 9,
+    "module_edges": 5
+  },
+  "warnings": []
+}
