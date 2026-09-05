@@ -13,29 +13,29 @@
   "layers": {
     "structure": {
       "language_counts": {
-        "js": 5,
+        "js": 17,
         "py": 1,
-        "ts": 18,
+        "ts": 19,
         "tsx": 10
       },
-      "node_count_total": 34,
+      "node_count_total": 47,
       "node_count_kept": 25,
-      "omitted_nodes": 9,
+      "omitted_nodes": 22,
       "nodes": [
         {
           "path": "main/settings",
+          "lang": "ts",
+          "fan_in": 5,
+          "fan_out": 0
+        },
+        {
+          "path": "main/db",
           "lang": "ts",
           "fan_in": 4,
           "fan_out": 0
         },
         {
           "path": "main/dateUtils",
-          "lang": "ts",
-          "fan_in": 3,
-          "fan_out": 0
-        },
-        {
-          "path": "main/db",
           "lang": "ts",
           "fan_in": 3,
           "fan_out": 0
@@ -75,6 +75,12 @@
           "lang": "ts",
           "fan_in": 1,
           "fan_out": 4
+        },
+        {
+          "path": "main/reset",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 2
         },
         {
           "path": "main/updater",
@@ -119,63 +125,57 @@
           "fan_out": 0
         },
         {
-          "path": "app/background",
+          "path": "app/_next/static/D8KkMgv897eV_jNHvsjEb/_buildManifest",
           "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "app/preload",
+          "path": "app/_next/static/D8KkMgv897eV_jNHvsjEb/_ssgManifest",
           "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "cat-lab/tools/build_body_editor_reference",
-          "lang": "py",
+          "path": "app/_next/static/chunks/framework-14efab3c3d1ed63b",
+          "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "main/background",
-          "lang": "ts",
-          "fan_in": 0,
-          "fan_out": 5
-        },
-        {
-          "path": "main/preload",
-          "lang": "ts",
+          "path": "app/_next/static/chunks/main-ef0074dfe36c8a63",
+          "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "next-env.d",
-          "lang": "ts",
+          "path": "app/_next/static/chunks/pages/_app-3f01a8a8f3e13cfd",
+          "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "renderer/lib/taskFromParsed",
-          "lang": "ts",
+          "path": "app/_next/static/chunks/pages/_error-88e38b962650355f",
+          "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "renderer/next-env.d",
-          "lang": "ts",
+          "path": "app/_next/static/chunks/pages/capture-20f64ba43f274feb",
+          "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         },
         {
-          "path": "renderer/next.config",
+          "path": "app/_next/static/chunks/pages/chat-0942779e93ba141f",
           "lang": "js",
           "fan_in": 0,
           "fan_out": 0
         }
       ],
-      "edge_count_total": 27,
-      "edge_count_kept": 22,
-      "omitted_edges": 5,
+      "edge_count_total": 30,
+      "edge_count_kept": 19,
+      "omitted_edges": 11,
       "edges": [
         {
           "from": "main/ai",
@@ -202,26 +202,6 @@
           "to": "main/db"
         },
         {
-          "from": "main/background",
-          "to": "main/ai"
-        },
-        {
-          "from": "main/background",
-          "to": "main/db"
-        },
-        {
-          "from": "main/background",
-          "to": "main/settings"
-        },
-        {
-          "from": "main/background",
-          "to": "main/updater"
-        },
-        {
-          "from": "main/background",
-          "to": "main/windows"
-        },
-        {
           "from": "main/parseRules",
           "to": "main/aiShared"
         },
@@ -243,6 +223,14 @@
         },
         {
           "from": "main/providers/groq",
+          "to": "main/settings"
+        },
+        {
+          "from": "main/reset",
+          "to": "main/db"
+        },
+        {
+          "from": "main/reset",
           "to": "main/settings"
         },
         {
@@ -337,7 +325,7 @@
       ],
       "decision_count_total": 1,
       "omitted_decisions": 0,
-      "todo_count": 8
+      "todo_count": 0
     },
     "cross_project": {
       "status": "pending",
@@ -345,8 +333,8 @@
     }
   },
   "truncated": {
-    "modules": 9,
-    "module_edges": 5
+    "modules": 22,
+    "module_edges": 11
   },
   "warnings": []
 }

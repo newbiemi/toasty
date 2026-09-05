@@ -41,8 +41,9 @@
       "**/node_modules/better-sqlite3/**"
     ],
     "publish": {
-      "provider": "generic",
-      "url": "https://your-update-server.com/toasty/"
+      "provider": "github",
+      "owner": "newbiemi",
+      "repo": "toasty"
     },
     "win": {
       "target": "nsis",

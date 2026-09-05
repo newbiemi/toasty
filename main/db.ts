@@ -2,11 +2,15 @@ import Database from "better-sqlite3";
 import * as path from "path";
 import { app } from "electron";
 
-let db: Database.Database;
+let db: Database.Database | null = null;
+
+export function dbFilePath(): string {
+  return path.join(app.getPath("userData"), "toasty.db");
+}
 
 function getDB(): Database.Database {
   if (!db) {
-    const dbPath = path.join(app.getPath("userData"), "toasty.db");
+    const dbPath = dbFilePath();
     db = new Database(dbPath);
     db.pragma("journal_mode = WAL");
     db.exec(`
@@ -83,4 +87,19 @@ export function deleteTask(id: string) {
 
 export function clearDone() {
   getDB().prepare("DELETE FROM tasks WHERE status = 'done'").run();
+}
+
+/** Deletes all rows and checkpoints the WAL so nothing lingers to resurrect on reopen. */
+export function clearTasks() {
+  getDB().prepare("DELETE FROM tasks").run();
+  getDB().pragma("wal_checkpoint(TRUNCATE)");
+}
+
+/** Closes the connection (checkpointing first) so its file handle is released for deletion. */
+export function closeDB() {
+  if (db) {
+    db.pragma("wal_checkpoint(TRUNCATE)");
+    db.close();
+    db = null;
+  }
 }

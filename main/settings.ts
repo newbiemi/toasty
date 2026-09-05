@@ -40,6 +40,10 @@ function settingsPath(): string {
   return path.join(app.getPath("userData"), "settings.json");
 }
 
+export function settingsFilePath(): string {
+  return settingsPath();
+}
+
 export function getSettings(): ToastySettings {
   if (!_cache) {
     try {
@@ -61,6 +65,21 @@ export function getSettings(): ToastySettings {
 
 export function setSettings(patch: Partial<ToastySettings>): ToastySettings {
   _cache = { ...getSettings(), ...patch };
+  try { fs.writeFileSync(settingsPath(), JSON.stringify(_cache, null, 2)); } catch {}
+  return { ..._cache };
+}
+
+/** Resets everything to defaults except groqApiKey — losing it costs a trip back to the Groq console. */
+export function resetSettingsPreservingKey(): ToastySettings {
+  const { groqApiKey } = getSettings();
+  _cache = { ...DEFAULTS, groqApiKey };
+  try { fs.writeFileSync(settingsPath(), JSON.stringify(_cache, null, 2)); } catch {}
+  return { ..._cache };
+}
+
+/** Full wipe, including the key — used by resetAll to return to a first-run state. */
+export function resetSettingsFull(): ToastySettings {
+  _cache = { ...DEFAULTS };
   try { fs.writeFileSync(settingsPath(), JSON.stringify(_cache, null, 2)); } catch {}
   return { ..._cache };
 }

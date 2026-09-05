@@ -13,6 +13,7 @@ import {
   focusExisting,
 } from "./windows";
 import { initAutoUpdater, checkForUpdates, installUpdate } from "./updater";
+import { resetSettings, resetTasks, resetAll } from "./reset";
 
 // Unify dev + prod userData path so both write to %APPDATA%\Roaming\toasty\
 app.setName("toasty");
@@ -149,6 +150,11 @@ ipcMain.handle("ollama:check", async () => checkOllama());
 ipcMain.handle("ai:models", () => listModels());
 ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("app:installUpdate", () => installUpdate());
+
+// ─── IPC: Reset (temporary trigger only — real UI lands in the Phase 3 menu) ──
+ipcMain.handle("app:resetSettings", () => resetSettings());
+ipcMain.handle("app:resetTasks", () => resetTasks());
+ipcMain.handle("app:resetAll", () => resetAll());
 
 // ─── Ambient state tick ───────────────────────
 function isInQuietHours(h: number, from: number, to: number): boolean {

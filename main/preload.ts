@@ -76,4 +76,9 @@ contextBridge.exposeInMainWorld("toasty", {
     return () => ipcRenderer.removeListener("update:status", handler);
   },
   installUpdate: () => ipcRenderer.invoke("app:installUpdate"),
+
+  // ── Reset (temporary trigger only — real UI lands in the Phase 3 menu) ──
+  resetSettings: () => ipcRenderer.invoke("app:resetSettings"),
+  resetTasks: () => ipcRenderer.invoke("app:resetTasks"),
+  resetAll: () => ipcRenderer.invoke("app:resetAll"),
 });

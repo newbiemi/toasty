@@ -62,6 +62,10 @@ interface ToastyAPI {
   // Auto-update
   onUpdateStatus: (cb: (status: any) => void) => () => void;
   installUpdate: () => Promise<void>;
+  // Reset (temporary trigger only — real UI lands in the Phase 3 menu)
+  resetSettings: () => Promise<{ backup: string | null }>;
+  resetTasks: () => Promise<{ backup: string | null }>;
+  resetAll: () => Promise<{ backups: (string | null)[] }>;
 }
 
 declare global {
