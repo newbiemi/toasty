@@ -16,7 +16,7 @@ jobs:
           node-version: 20
 
       - run: npm ci
-      - run: npm run build
+      - run: npx nextron build --publish never
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
