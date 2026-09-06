@@ -219,14 +219,17 @@ function run() {
       adjust.resolve({ op: "complete", selector: { match: "payroll" } }),
       adjust.resolve({ op: "delete", selector: { match: "onboarding docs" } }),
       adjust.resolve({ op: "add", patch: { title: "Draft the Q4 hiring plan", priority: "high" } }),
+      adjust.resolve({ op: "add", patch: { title: "Chase the visa paperwork" } }),
     ];
     const res = adjust.apply(batch);
     ok(db.getTask("t5").status === "done", "completed one");
     ok(db.getTask("t4") === null, "deleted one");
-    ok(res.created.length === 1 && db.getTask(res.created[0]) !== null, "added one", res.created.join());
+    ok(res.created.length === 2, "added two", res.created.join());
+    ok(new Set(res.created).size === 2, "the two new tasks got different ids", res.created.join());
+    ok(res.created.every((id) => db.getTask(id) !== null), "both new tasks are really there");
     adjust.undo(res.undo);
-    ok(fingerprint() === before, "a single undo reversed all three");
-    ok(db.getTask(res.created[0]) === null, "the added task was removed again");
+    ok(fingerprint() === before, "a single undo reversed all four");
+    ok(res.created.every((id) => db.getTask(id) === null), "both added tasks were removed again");
   }
 
   console.log("");

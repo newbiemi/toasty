@@ -1,7 +1,6 @@
 {
   "referenceDate": "2026-09-16T09:00:00",
-  "model": "llama-3.3-70b-versatile",
-  "recordedAt": "2026-09-06T00:26:29.988Z",
+  "recordedAt": "2026-09-06T00:48:50.468Z",
   "note": "Raw Groq answers, before the rule-parser cross-check. Replayed by `npm run bench` so the gate is offline and deterministic.",
   "answers": {
     "plain-no-date": [
@@ -63,7 +62,7 @@
         "dueTime": null,
         "startDate": null,
         "priority": "high",
-        "category": "Personal",
+        "category": "Meeting",
         "subtasks": [],
         "notes": "",
         "links": []
@@ -104,7 +103,7 @@
         "priority": "high",
         "category": "Meeting",
         "subtasks": [],
-        "notes": "",
+        "notes": "Next week",
         "links": []
       }
     ],
@@ -117,17 +116,17 @@
         "priority": "medium",
         "category": "HR/Management",
         "subtasks": [],
-        "notes": "Start the engagement survey next month",
+        "notes": "Start the engagement survey next month.",
         "links": []
       }
     ],
     "date-bare-weekday": [
       {
         "title": "Run interview panel",
-        "dueDate": "2026-09-17",
+        "dueDate": "2026-09-18",
         "dueTime": null,
         "startDate": null,
-        "priority": "high",
+        "priority": "medium",
         "category": "Recruitment",
         "subtasks": [],
         "notes": "",
@@ -150,7 +149,7 @@
     "date-next-monday": [
       {
         "title": "Kick off probation reviews",
-        "dueDate": "2026-09-21",
+        "dueDate": "2026-09-19",
         "dueTime": null,
         "startDate": null,
         "priority": "high",
@@ -176,13 +175,13 @@
     "date-slash-ddmm": [
       {
         "title": "Renew office lease",
-        "dueDate": null,
+        "dueDate": "2026-12-25",
         "dueTime": null,
         "startDate": null,
         "priority": "medium",
         "category": "HR/Management",
         "subtasks": [],
-        "notes": "Due by 25/12.",
+        "notes": "Renew the office lease by 2026-12-25",
         "links": []
       }
     ],
@@ -219,7 +218,7 @@
         "dueTime": null,
         "startDate": null,
         "priority": "medium",
-        "category": "HR/Management",
+        "category": "Recruitment",
         "subtasks": [],
         "notes": "",
         "links": []
@@ -240,7 +239,7 @@
     ],
     "date-bare-ordinal": [
       {
-        "title": "Collect Timesheets",
+        "title": "Collect timesheets",
         "dueDate": "2026-09-20",
         "dueTime": null,
         "startDate": null,
@@ -260,7 +259,7 @@
         "priority": "medium",
         "category": "HR/Management",
         "subtasks": [],
-        "notes": "Pay on the 3rd",
+        "notes": "Due on the 3rd",
         "links": []
       }
     ],
@@ -273,7 +272,7 @@
         "priority": "high",
         "category": "Recruitment",
         "subtasks": [],
-        "notes": "",
+        "notes": "Follow up on pending reference check",
         "links": []
       }
     ],
@@ -299,7 +298,7 @@
         "priority": "medium",
         "category": "Recruitment",
         "subtasks": [],
-        "notes": "",
+        "notes": "Report must be finalized by the end of September",
         "links": []
       }
     ],
@@ -308,7 +307,7 @@
         "title": "Schedule standup with CS team",
         "dueDate": "2026-09-17",
         "dueTime": "15:00",
-        "startDate": null,
+        "startDate": "2026-09-17",
         "priority": "medium",
         "category": "Meeting",
         "subtasks": [],
@@ -318,7 +317,7 @@
     ],
     "time-am-minutes": [
       {
-        "title": "Interview Naaku",
+        "title": "Schedule interview with Naaku",
         "dueDate": "2026-09-17",
         "dueTime": "09:30",
         "startDate": null,
@@ -348,7 +347,7 @@
         "dueDate": "2026-09-17",
         "dueTime": "12:00",
         "startDate": null,
-        "priority": "high",
+        "priority": "medium",
         "category": "Meeting",
         "subtasks": [],
         "notes": "",
@@ -364,7 +363,7 @@
         "priority": "medium",
         "category": "Meeting",
         "subtasks": [],
-        "notes": "",
+        "notes": "Daily sync at 9",
         "links": []
       }
     ],
@@ -473,9 +472,9 @@
         "dueTime": null,
         "startDate": null,
         "priority": "low",
-        "category": "HR/Management",
+        "category": "Recruitment",
         "subtasks": [],
-        "notes": "",
+        "notes": "Organize and clean up previous interview documentation.",
         "links": []
       }
     ],
@@ -511,27 +510,27 @@
         "dueDate": null,
         "dueTime": null,
         "startDate": null,
-        "priority": "medium",
+        "priority": "high",
         "category": "Recruitment",
         "subtasks": [
           {
-            "text": "Gather funnel metrics for pre-screen and first interview stages",
+            "text": "Gather funnel metrics",
             "done": false
           },
           {
-            "text": "Analyze monthly drop‑off rates between pre-screen and first interview",
+            "text": "Analyze drop‑off between pre‑screen and first interview",
             "done": false
           },
           {
-            "text": "Identify potential causes for the increasing drop‑off",
+            "text": "Identify root causes of worsening drop‑off",
             "done": false
           },
           {
-            "text": "Develop recommendations to improve candidate progression",
+            "text": "Propose improvements to the recruitment process",
             "done": false
           }
         ],
-        "notes": "Drop‑off between pre‑screen and first interview has been worsening each month; no one has investigated why.",
+        "notes": "Drop‑off between pre‑screen and first interview has been getting worse each month and no one has examined why.",
         "links": []
       }
     ],
@@ -561,6 +560,45 @@
             "done": false
           }
         ],
+        "notes": "Onboarding tasks for the new analyst include creating a laptop ticket, setting up the payroll record, booking a buddy session, and sending the welcome pack.",
+        "links": []
+      }
+    ],
+    "ordinal-not-a-date": [
+      {
+        "title": "Review 3rd candidate for CSA role",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "ordinal-round-not-a-date": [
+      {
+        "title": "Schedule 2nd interview round with Naaku",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "number-not-a-time": [
+      {
+        "title": "Review 5 applications from weekend batch",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
         "notes": "",
         "links": []
       }

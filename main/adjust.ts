@@ -226,13 +226,14 @@ function sanitisePatch(patch: Record<string, any> | undefined): Record<string, a
   return out;
 }
 
-/** Next free `tN` id, matching the renderer's scheme (TaskDashboard nextIds). */
-function nextId(tasks: any[], offset: number): string {
-  const max = tasks.reduce((m, t) => {
+/** Highest `tN` id in use, matching the renderer's scheme (TaskDashboard nextIds).
+ *  apply() counts up from this once per batch — recomputing it per add would
+ *  hand two new tasks in the same batch the same id. */
+function highestId(tasks: any[]): number {
+  return tasks.reduce((m, t) => {
     const n = String(t.id).match(/^t(\d+)$/);
     return n ? Math.max(m, parseInt(n[1], 10)) : m;
   }, 0);
-  return `t${max + 1 + offset}`;
 }
 
 export interface UndoToken {
@@ -275,14 +276,15 @@ export function apply(resolutions: Resolution[]): ApplyResult {
     before.push(JSON.parse(JSON.stringify(t)));
   };
 
+  let idCounter = highestId(all);
+
   const work = () => {
-    let addOffset = 0;
     for (const r of resolutions) {
       if (r.confidence === "ambiguous" || r.confidence === "none") continue;
       const patch = sanitisePatch(r.intent.patch);
 
       if (r.intent.op === "add") {
-        const id = nextId(all.concat(created.map((c) => ({ id: c }))), addOffset++);
+        const id = `t${++idCounter}`;
         const row = {
           id,
           title: patch.title || "Untitled task",

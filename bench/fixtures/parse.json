@@ -7,247 +7,487 @@
     {
       "id": "plain-no-date",
       "text": "write the onboarding checklist",
-      "expect": { "dueDate": null, "dueTime": null, "links": [], "priority": "medium" },
-      "tags": ["negative"]
+      "expect": {
+        "dueDate": null,
+        "dueTime": null,
+        "links": [],
+        "priority": "medium"
+      },
+      "tags": [
+        "negative"
+      ]
     },
     {
       "id": "plain-chatty",
       "text": "hey toasty, I need to follow up with the finance team about the reimbursement forms",
-      "expect": { "dueDate": null, "dueTime": null, "links": [] },
-      "tags": ["negative"]
+      "expect": {
+        "dueDate": null,
+        "dueTime": null,
+        "links": []
+      },
+      "tags": [
+        "negative"
+      ]
     },
     {
       "id": "date-today",
       "text": "submit the headcount request today",
-      "expect": { "dueDate": "2026-09-16", "dueTime": null, "links": [] },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-09-16",
+        "dueTime": null,
+        "links": []
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-tomorrow",
       "text": "send the offer letter to Ongki tomorrow",
-      "expect": { "dueDate": "2026-09-17", "dueTime": null, "links": [] },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-09-17",
+        "dueTime": null,
+        "links": []
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-tmrw-shorthand",
       "text": "call the vendor tmrw",
-      "expect": { "dueDate": "2026-09-17", "dueTime": null },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-09-17",
+        "dueTime": null
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-tonight",
       "text": "review the shortlist tonight",
-      "expect": { "dueDate": "2026-09-16" },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-09-16"
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-eod",
       "text": "send the payroll file EOD",
-      "expect": { "dueDate": "2026-09-16" },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-09-16"
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-next-week",
       "text": "book the team offsite next week",
-      "expect": { "dueDate": "2026-09-23", "dueTime": null },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-09-23",
+        "dueTime": null
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-next-month",
       "text": "start the engagement survey next month",
-      "expect": { "dueDate": "2026-10-01" },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-10-01"
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-bare-weekday",
       "text": "run the interview panel on Friday",
-      "expect": { "dueDate": "2026-09-18", "dueTime": null },
-      "tags": ["date", "weekday"]
+      "expect": {
+        "dueDate": "2026-09-18",
+        "dueTime": null
+      },
+      "tags": [
+        "date",
+        "weekday"
+      ]
     },
     {
       "id": "date-next-weekday",
       "text": "run the interview panel next Friday",
-      "expect": { "dueDate": "2026-09-25" },
-      "tags": ["date", "weekday"]
+      "expect": {
+        "dueDate": "2026-09-25"
+      },
+      "tags": [
+        "date",
+        "weekday"
+      ]
     },
     {
       "id": "date-next-monday",
       "text": "kick off the probation reviews next Monday",
-      "expect": { "dueDate": "2026-09-28" },
-      "tags": ["date", "weekday"]
+      "expect": {
+        "dueDate": "2026-09-28"
+      },
+      "tags": [
+        "date",
+        "weekday"
+      ]
     },
     {
       "id": "date-iso",
       "text": "close the recruitment report by 2026-11-03",
-      "expect": { "dueDate": "2026-11-03", "dueTime": null },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-11-03",
+        "dueTime": null
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-slash-ddmm",
       "text": "renew the office lease 25/12",
-      "expect": { "dueDate": "2026-12-25" },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-12-25"
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-slash-rollover",
       "text": "file the annual tax return 1/2",
-      "expect": { "dueDate": "2027-02-01" },
-      "tags": ["date", "rollover"]
+      "expect": {
+        "dueDate": "2027-02-01"
+      },
+      "tags": [
+        "date",
+        "rollover"
+      ]
     },
     {
       "id": "date-month-name",
       "text": "prepare the December bonus letters Dec 1",
-      "expect": { "dueDate": "2026-12-01" },
-      "tags": ["date"]
+      "expect": {
+        "dueDate": "2026-12-01"
+      },
+      "tags": [
+        "date"
+      ]
     },
     {
       "id": "date-month-name-rollover",
       "text": "run the salary benchmarking exercise Jan 15",
-      "expect": { "dueDate": "2027-01-15" },
-      "tags": ["date", "rollover"]
+      "expect": {
+        "dueDate": "2027-01-15"
+      },
+      "tags": [
+        "date",
+        "rollover"
+      ]
     },
     {
       "id": "date-month-name-ordinal",
       "text": "publish the holiday calendar on Oct 20th",
-      "expect": { "dueDate": "2026-10-20" },
-      "tags": ["date", "ordinal"]
+      "expect": {
+        "dueDate": "2026-10-20"
+      },
+      "tags": [
+        "date",
+        "ordinal"
+      ]
     },
     {
       "id": "date-bare-ordinal",
       "text": "collect the timesheets on the 20th",
-      "expect": { "dueDate": "2026-09-20" },
-      "tags": ["date", "ordinal"]
+      "expect": {
+        "dueDate": "2026-09-20"
+      },
+      "tags": [
+        "date",
+        "ordinal"
+      ]
     },
     {
       "id": "date-bare-ordinal-rollover",
       "text": "pay the contractor invoices on the 3rd",
-      "expect": { "dueDate": "2026-10-03" },
-      "tags": ["date", "ordinal", "rollover"]
+      "expect": {
+        "dueDate": "2026-10-03"
+      },
+      "tags": [
+        "date",
+        "ordinal",
+        "rollover"
+      ]
     },
     {
       "id": "date-in-n-days",
       "text": "chase the reference check in 3 days",
-      "expect": { "dueDate": "2026-09-19" },
-      "tags": ["date", "relative"]
+      "expect": {
+        "dueDate": "2026-09-19"
+      },
+      "tags": [
+        "date",
+        "relative"
+      ]
     },
     {
       "id": "date-in-two-weeks",
       "text": "review the hiring plan in 2 weeks",
-      "expect": { "dueDate": "2026-09-30" },
-      "tags": ["date", "relative"]
+      "expect": {
+        "dueDate": "2026-09-30"
+      },
+      "tags": [
+        "date",
+        "relative"
+      ]
     },
     {
       "id": "date-end-of-month",
       "text": "close the recruitment pipeline report by end of month",
-      "expect": { "dueDate": "2026-09-30" },
-      "tags": ["date", "relative"]
+      "expect": {
+        "dueDate": "2026-09-30"
+      },
+      "tags": [
+        "date",
+        "relative"
+      ]
     },
     {
       "id": "time-pm",
       "text": "standup with the CS team tomorrow 3pm",
-      "expect": { "dueDate": "2026-09-17", "dueTime": "15:00" },
-      "tags": ["time"]
+      "expect": {
+        "dueDate": "2026-09-17",
+        "dueTime": "15:00"
+      },
+      "tags": [
+        "time"
+      ]
     },
     {
       "id": "time-am-minutes",
       "text": "interview Naaku at 9:30am on Friday",
-      "expect": { "dueDate": "2026-09-18", "dueTime": "09:30" },
-      "tags": ["time"]
+      "expect": {
+        "dueDate": "2026-09-18",
+        "dueTime": "09:30"
+      },
+      "tags": [
+        "time"
+      ]
     },
     {
       "id": "time-24h",
       "text": "vendor demo today 15:00",
-      "expect": { "dueDate": "2026-09-16", "dueTime": "15:00" },
-      "tags": ["time"]
+      "expect": {
+        "dueDate": "2026-09-16",
+        "dueTime": "15:00"
+      },
+      "tags": [
+        "time"
+      ]
     },
     {
       "id": "time-noon",
       "text": "lunch and learn session tomorrow at noon",
-      "expect": { "dueDate": "2026-09-17", "dueTime": "12:00" },
-      "tags": ["time"]
+      "expect": {
+        "dueDate": "2026-09-17",
+        "dueTime": "12:00"
+      },
+      "tags": [
+        "time"
+      ]
     },
     {
       "id": "time-bare-hour-morning",
       "text": "daily sync at 9",
-      "expect": { "dueTime": "09:00" },
-      "tags": ["time", "bare-hour"]
+      "expect": {
+        "dueTime": "09:00"
+      },
+      "tags": [
+        "time",
+        "bare-hour"
+      ]
     },
     {
       "id": "time-bare-hour-afternoon",
       "text": "coffee chat with the new hire at 3",
-      "expect": { "dueTime": "15:00" },
-      "tags": ["time", "bare-hour"]
+      "expect": {
+        "dueTime": "15:00"
+      },
+      "tags": [
+        "time",
+        "bare-hour"
+      ]
     },
     {
       "id": "time-only-defaults-today",
       "text": "team retro 4pm",
-      "expect": { "dueDate": "2026-09-16", "dueTime": "16:00" },
-      "tags": ["time"]
+      "expect": {
+        "dueDate": "2026-09-16",
+        "dueTime": "16:00"
+      },
+      "tags": [
+        "time"
+      ]
     },
     {
       "id": "link-https",
       "text": "review the JD draft at https://docs.google.com/document/d/abc123 before Friday",
       "expect": {
         "dueDate": "2026-09-18",
-        "links": ["https://docs.google.com/document/d/abc123"]
+        "links": [
+          "https://docs.google.com/document/d/abc123"
+        ]
       },
-      "tags": ["link"]
+      "tags": [
+        "link"
+      ]
     },
     {
       "id": "link-trailing-punctuation",
       "text": "read the policy update here https://influx.com/policies/leave-2026.",
-      "expect": { "links": ["https://influx.com/policies/leave-2026"] },
-      "tags": ["link"]
+      "expect": {
+        "links": [
+          "https://influx.com/policies/leave-2026"
+        ]
+      },
+      "tags": [
+        "link"
+      ]
     },
     {
       "id": "link-two",
       "text": "compare https://greenhouse.io/report and https://lever.co/report for the ATS decision",
       "expect": {
-        "links": ["https://greenhouse.io/report", "https://lever.co/report"]
+        "links": [
+          "https://greenhouse.io/report",
+          "https://lever.co/report"
+        ]
       },
-      "tags": ["link"]
+      "tags": [
+        "link"
+      ]
     },
     {
       "id": "link-none-invented",
       "text": "check the ATS dashboard for new applicants",
-      "expect": { "links": [] },
-      "tags": ["negative", "link"]
+      "expect": {
+        "links": []
+      },
+      "tags": [
+        "negative",
+        "link"
+      ]
     },
     {
       "id": "priority-urgent",
       "text": "urgent: escalate the resignation letter to the director",
-      "expect": { "priority": "high", "dueDate": null },
-      "tags": ["priority", "negative"]
+      "expect": {
+        "priority": "high",
+        "dueDate": null
+      },
+      "tags": [
+        "priority",
+        "negative"
+      ]
     },
     {
       "id": "priority-low",
       "text": "tidy up the old interview notes whenever",
-      "expect": { "priority": "low" },
-      "tags": ["priority"]
+      "expect": {
+        "priority": "low"
+      },
+      "tags": [
+        "priority"
+      ]
     },
     {
       "id": "category-hashtag",
       "text": "draft the CSA job ad #Recruitment",
-      "expect": { "category": "Recruitment", "dueDate": null },
-      "tags": ["category", "negative"]
+      "expect": {
+        "category": "Recruitment",
+        "dueDate": null
+      },
+      "tags": [
+        "category",
+        "negative"
+      ]
     },
     {
       "id": "category-known-word",
       "text": "prepare the Documentation for the new leave policy",
-      "expect": { "category": "Documentation" },
-      "tags": ["category"]
+      "expect": {
+        "category": "Documentation"
+      },
+      "tags": [
+        "category"
+      ]
     },
     {
       "id": "long-input-title-summary",
       "text": "so I was thinking that we really need to sit down and go through the whole recruitment funnel for the customer support agent role because the drop off between the pre-screen and the first interview has been getting worse every month and nobody has looked at why",
-      "expect": { "dueDate": null, "dueTime": null, "links": [] },
-      "tags": ["negative", "title"]
+      "expect": {
+        "dueDate": null,
+        "dueTime": null,
+        "links": []
+      },
+      "tags": [
+        "negative",
+        "title"
+      ]
     },
     {
       "id": "multi-step-subtasks",
       "text": "onboarding for the new analyst: create the laptop ticket, set up the payroll record, book the buddy session and send the welcome pack",
-      "expect": { "dueDate": null, "dueTime": null },
-      "tags": ["negative", "subtasks"]
+      "expect": {
+        "dueDate": null,
+        "dueTime": null
+      },
+      "tags": [
+        "negative",
+        "subtasks"
+      ]
+    },
+    {
+      "id": "ordinal-not-a-date",
+      "text": "review the 3rd candidate for the CSA role",
+      "expect": {
+        "dueDate": null,
+        "dueTime": null
+      },
+      "tags": [
+        "negative",
+        "ordinal"
+      ]
+    },
+    {
+      "id": "ordinal-round-not-a-date",
+      "text": "schedule the 2nd interview round with Naaku",
+      "expect": {
+        "dueDate": null,
+        "dueTime": null
+      },
+      "tags": [
+        "negative",
+        "ordinal"
+      ]
+    },
+    {
+      "id": "number-not-a-time",
+      "text": "look at 5 applications from the weekend batch",
+      "expect": {
+        "dueTime": null
+      },
+      "tags": [
+        "negative",
+        "bare-hour"
+      ]
     }
   ]
 }

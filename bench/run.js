@@ -10,13 +10,13 @@
 //
 //   raw LLM        what Groq actually answered
 //   rule parser    what main/parseRules.ts finds on its own, no model involved
-//   cross-checked  what the app really uses (groq.ts drops any date/time/link the
-//                  rule parser did not independently find)
+//   cross-checked  what the app really uses (groq.ts takes dates, times and links
+//                  from the rule parser, everything else from Groq)
 //
-// Scoring them apart is the whole point. The cross-check is a presence gate, so a
-// date Groq got RIGHT gets thrown away whenever the regexes miss it. Combined into
-// one number that looks exactly like the model being wrong; split out, it points
-// straight at the regex to fix.
+// Scoring them apart is the whole point. The rule parser is authoritative for
+// dates, so a date Groq got RIGHT is discarded whenever the regexes disagree —
+// and in one combined number that looks exactly like the model being wrong. Split
+// out, the report points straight at the regex to fix.
 
 const path = require("path");
 const fs = require("fs");
@@ -30,7 +30,7 @@ const B = path.join(__dirname, ".build", "main");
 const { setNow, localDateStr } = require(path.join(B, "dateUtils.js"));
 const { setKnownCategories } = require(path.join(B, "aiShared.js"));
 const { ruleParse } = require(path.join(B, "parseRules.js"));
-const { groqParseRaw, crossCheck } = require(path.join(B, "providers", "groq.js"));
+const { groqParseRaw, crossCheck, GROQ_MODEL } = require(path.join(B, "providers", "groq.js"));
 
 const FIXTURES = path.join(__dirname, "fixtures", "parse.json");
 const RECORDING = path.join(__dirname, "recordings", "groq-parse.json");
@@ -160,6 +160,13 @@ async function main() {
       return;
     }
     recorded = JSON.parse(fs.readFileSync(RECORDING, "utf8"));
+    if (recorded.model !== GROQ_MODEL) {
+      console.error(
+        `Recording used ${recorded.model} but the app now calls ${GROQ_MODEL}. Re-record with \`npm run bench:live\`.`
+      );
+      app.exit(2);
+      return;
+    }
     if (recorded.referenceDate !== spec.referenceDate) {
       console.error(
         `Recording was made against ${recorded.referenceDate} but fixtures now pin ${spec.referenceDate}. Re-record with \`npm run bench:live\`.`
@@ -209,7 +216,7 @@ async function main() {
       JSON.stringify(
         {
           referenceDate: spec.referenceDate,
-          model: "llama-3.3-70b-versatile",
+          model: GROQ_MODEL,
           recordedAt: new Date().toISOString(),
           note: "Raw Groq answers, before the rule-parser cross-check. Replayed by `npm run bench` so the gate is offline and deterministic.",
           answers,

@@ -17,7 +17,7 @@ Electron's ABI and will not load otherwise — `npm run bench` compiles `main/` 
 
 ## Why the parse benchmark scores three things, not one
 
-`npm run bench` reports the same 40 phrases three ways:
+`npm run bench` reports the same 43 phrases three ways:
 
 | Track | What it is |
 |---|---|
@@ -25,27 +25,27 @@ Electron's ABI and will not load otherwise — `npm run bench` compiles `main/` 
 | **Rule parser on its own** | what `main/parseRules.ts` finds with no model at all |
 | **What the app uses** | the two combined, exactly as `providers/groq.ts` does it |
 
-Combining them into one number hides the failure that actually matters. The app
-cross-checks the model against the rule parser, so a date the model got *right* is
-thrown away whenever the regexes miss it — and that looks identical to the model
-being wrong. Split out, the report says which one to go fix. The output has a
-section for each cause: right answers the safety check threw away, answers Groq
-got wrong, and answers where the two disagreed.
+Combining them into one number hides the failure that actually matters. The rule
+parser is authoritative for dates, times and links, so a date the model got
+*right* is discarded whenever the regexes disagree — and in a single number that
+looks identical to the model being wrong. Split out, the report says which side to
+go fix. The output has a section per cause: right answers the cross-check threw
+away, answers Groq got wrong, and answers where the two disagreed.
 
 ## Today's numbers
 
-Recorded 2026-09-06, model `openai/gpt-oss-120b`:
+Recorded 2026-09-06, model `openai/gpt-oss-120b`, 43 phrases / 69 details:
 
 ```
-Groq on its own           52 of 64     81%   made things up: 0   usable titles: 40/40
-Rule parser on its own    64 of 64    100%   made things up: 0   usable titles: 34/40
-What the app uses         64 of 64    100%   made things up: 0   usable titles: 40/40
+Groq on its own           59 of 69     86%   made things up: 0   usable titles: 43/43
+Rule parser on its own    69 of 69    100%   made things up: 0   usable titles: 34/43
+What the app uses         69 of 69    100%   made things up: 0   usable titles: 43/43
 ```
 
 Each side is better at a different half of the job. The rule parser reads dates
 off words that are literally in the text, so it cannot fabricate one and cannot
-get weekday arithmetic wrong — it gets 33/33 due dates where Groq gets 21/33.
-Groq is better at the judgement calls: it writes a usable title for all 40 phrases
+get weekday arithmetic wrong — it gets 35/35 due dates where Groq gets 25/35.
+Groq is better at the judgement calls: it writes a usable title for all 43 phrases
 where the rule parser manages 34. So `crossCheck()` takes dates, times and links
 from the rules and everything else from Groq.
 
@@ -53,14 +53,20 @@ from the rules and everything else from Groq.
 
 `bar.json`, agreed with Fahmi on 2026-09-06:
 
-- at least **60 of 64** details right (94%)
+- at least **94%** of details right (65 of 69 today)
 - **zero** invented details — the app may never produce a date, time or link that
   wasn't in what the user typed
-- at most **2 of 40** unusable titles
+- at most **2** unusable titles
 
-The four-miss headroom is deliberate: the rule parser was fixed against these
-exact 40 phrases, so 100% today is partly self-fulfilling. New fixtures should be
-able to land without the gate going red. The zero-invention line never moves.
+The headroom is deliberate: the rule parser was fixed against these exact phrases,
+so 100% today is partly self-fulfilling. New fixtures should be able to land
+without the gate going red. The zero-invention line never moves.
+
+Three fixtures exist specifically to defend that line, because the rule parser is
+now authoritative over Groq for dates — which means a regex false positive doesn't
+just add a wrong date, it overrides a right one. `ordinal-not-a-date` ("review the
+3rd candidate"), `ordinal-round-not-a-date` ("the 2nd interview round") and
+`number-not-a-time` ("look at 5 applications") all expect nothing at all.
 
 ## Adding a fixture
 
@@ -74,12 +80,14 @@ npm run bench:live
 
 ## Dates are pinned, not live
 
-`fixtures/parse.json` sets `referenceDate` to 2026-09-16, and everything —
+`fixtures/parse.json` sets `referenceDate` to 2026-09-16 (a Wednesday, so weekday
+arithmetic has somewhere to go in both directions), and everything —
 `ruleParse`, the prompt Groq sees, the expected answers — resolves against that
 one date via `setNow()` in `main/dateUtils.ts`. A fixture that expects "tomorrow"
 therefore scores the same on any day the benchmark is run. Change the reference
-date and you must re-record, and the runner refuses to replay a stale recording
-rather than quietly scoring against the wrong day.
+date and you must re-record; the runner refuses to replay a recording made against
+a different reference date or a different model, rather than quietly scoring
+against the wrong day or the wrong answers.
 
 Two other things that would otherwise make runs non-reproducible are also pinned:
 the category list (`setKnownCategories()` — otherwise it reads whatever tasks are

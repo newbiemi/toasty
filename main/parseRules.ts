@@ -160,9 +160,15 @@ function extractDate(text: string): { date: string | null; rest: string } {
     return { date: localDateStr(d), rest: text.replace(/\bnext\s+month\b/i, " ").replace(/\s+/g, " ").trim() };
   }
 
-  // Bare day-of-month: "on the 20th", "due the 3rd". Runs after every pattern
-  // that carries its own month, so "Oct 20th" is already gone by here.
-  const ord = text.match(/\b(?:on\s+|by\s+|due\s+)?(?:the\s+)?(\d{1,2})(st|nd|rd|th)\b/i);
+  // Day-of-month: "on the 20th", "due the 3rd". Runs after every pattern that
+  // carries its own month, so "Oct 20th" is already gone by here.
+  //
+  // The leading date cue (on/by/due/before/after) is REQUIRED, not optional.
+  // Without it this matches any ordinal at all, and "review the 3rd candidate" or
+  // "2nd interview round" becomes a due date. That matters more than it used to:
+  // the rule parser is now authoritative over Groq for dates, so a false positive
+  // here doesn't just add a wrong date, it overrides a correct one.
+  const ord = text.match(/\b(?:on|by|due|before|after)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b/i);
   if (ord) {
     const day = parseInt(ord[1], 10);
     if (day >= 1 && day <= 31) return { date: futureDayOfMonth(day), rest: strip(ord[0]) };

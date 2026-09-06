@@ -238,7 +238,20 @@ Format: {"title":"...","subtasks":[{"text":"step","done":false}],"priority":"hig
     const data = await res.json();
     const content: string = data.choices?.[0]?.message?.content ?? "{}";
     const raw = extractJSON(content);
-    return validateParsed(JSON.parse(raw));
+    const adjusted = validateParsed(JSON.parse(raw));
+
+    // Ground dates in the instruction, exactly as parse does. Without this the
+    // adjust panel and task capture answer "next Friday" differently — capture
+    // takes the rule parser's date, and the panel took whatever the model said.
+    //
+    // Nulling is safe here: the caller (renderer/lib/mergeAdjusted.ts) falls back
+    // to the task's existing value for any field that comes back empty, so an
+    // instruction with no date in it ("make this urgent") leaves the due date
+    // alone rather than clearing it.
+    const grounded = ruleParse(instruction)[0];
+    adjusted.dueDate = grounded.dueDate ?? null;
+    adjusted.dueTime = grounded.dueTime ?? null;
+    return adjusted;
   } finally {
     clearTimeout(timer);
   }
