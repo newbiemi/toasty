@@ -29,55 +29,59 @@ graph LR
   n11["main/windows"]
   n12["renderer/lib/toastyFaces"]
   n13["renderer/types/task"]
-  n14["bench/.build/main/ai"]
-  n15["bench/.build/main/providers/chain"]
-  n16["bench/.build/main/providers/groq"]
-  n17["bench/.build/main/reset"]
-  n18["bench/.build/main/updater"]
-  n19["main/adjust"]
-  n20["main/ai"]
-  n21["main/providers/chain"]
-  n22["main/providers/groq"]
-  n23["main/reset"]
-  n24["main/updater"]
+  n14["bench/.build/main/adjust"]
+  n15["bench/.build/main/ai"]
+  n16["bench/.build/main/providers/chain"]
+  n17["bench/.build/main/providers/groq"]
+  n18["bench/.build/main/reset"]
+  n19["bench/.build/main/updater"]
+  n20["main/adjust"]
+  n21["main/ai"]
+  n22["main/providers/chain"]
+  n23["main/providers/groq"]
+  n24["main/reset"]
+  n14 --> n6
   n14 --> n4
   n14 --> n2
   n14 --> n7
   n14 --> n16
-  n14 --> n0
+  n15 --> n4
+  n15 --> n2
+  n15 --> n7
+  n15 --> n17
+  n15 --> n0
   n6 --> n2
   n7 --> n6
   n7 --> n4
-  n15 --> n0
-  n16 --> n6
-  n16 --> n4
-  n16 --> n7
   n16 --> n0
-  n17 --> n2
+  n17 --> n6
+  n17 --> n4
+  n17 --> n7
   n17 --> n0
-  n18 --> n10
+  n18 --> n2
+  n18 --> n0
+  n19 --> n10
   n10 --> n0
-  n19 --> n8
-  n19 --> n5
-  n19 --> n3
-  n19 --> n9
-  n19 --> n21
+  n20 --> n8
   n20 --> n5
   n20 --> n3
   n20 --> n9
   n20 --> n22
-  n20 --> n1
+  n21 --> n5
+  n21 --> n3
+  n21 --> n9
+  n21 --> n23
+  n21 --> n1
   n8 --> n3
   n9 --> n8
   n9 --> n5
-  n21 --> n1
-  n22 --> n8
-  n22 --> n5
-  n22 --> n9
   n22 --> n1
-  n23 --> n3
+  n23 --> n8
+  n23 --> n5
+  n23 --> n9
   n23 --> n1
-  n24 --> n11
+  n24 --> n3
+  n24 --> n1
   n11 --> n1
 ```
 
@@ -97,6 +101,7 @@ graph LR
 | main/windows | ts | 2 | 1 |
 | renderer/lib/toastyFaces | ts | 2 | 0 |
 | renderer/types/task | ts | 2 | 0 |
+| bench/.build/main/adjust | js | 1 | 5 |
 | bench/.build/main/ai | js | 1 | 5 |
 | bench/.build/main/providers/chain | js | 1 | 1 |
 | bench/.build/main/providers/groq | js | 1 | 4 |
@@ -107,7 +112,6 @@ graph LR
 | main/providers/chain | ts | 1 | 1 |
 | main/providers/groq | ts | 1 | 4 |
 | main/reset | ts | 1 | 2 |
-| main/updater | ts | 1 | 1 |
 
 _46 more modules omitted - see `map.json`._
 
@@ -141,11 +145,9 @@ _no key routes found (a route must reference a table by name, e.g. `.from('table
 
 **Fonts:** -
 
-**Components:** 5 found
+**Components:** 3 found
 - `renderer/components/Cat.tsx`
 - `renderer/components/CatSvg.tsx`
-- `renderer/components/MenuPanel.tsx`
-- `renderer/components/TaskDashboard.tsx`
 - `renderer/components/TaskEditModal.tsx`
 
 </details>
@@ -175,7 +177,7 @@ _no key routes found (a route must reference a table by name, e.g. `.from('table
 **Decisions on file:** 1
 - `context/decisions/2026-06-17-toasty-chat-window-approach.md`
 
-**TODO/FIXME markers:** 0
+**TODO/FIXME markers:** 9
 
 </details>
 

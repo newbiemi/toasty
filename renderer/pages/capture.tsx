@@ -1,16 +1,7 @@
 import Head from "next/head";
 import { useState, useEffect, useRef } from "react";
 import { buildTaskFromParsed } from "@/lib/taskFromParsed";
-
-const C = {
-  cream: "#f4e4c1",
-  panel: "#ecd9b0",
-  border: "#5a3e2b",
-  text: "#5a3e2b",
-  muted: "#9a7a5a",
-  orange: "#e8943b",
-  medium: "#c8880a",
-};
+import { C } from "@/lib/theme";
 
 export default function CapturePage() {
   const [input, setInput] = useState("");
@@ -80,7 +71,7 @@ export default function CapturePage() {
           html, body, #__next {
             margin: 0; padding: 0; overflow: hidden;
             background: ${C.panel};
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             width: 380px; height: 52px;
           }
           * { box-sizing: border-box; }
@@ -98,7 +89,7 @@ export default function CapturePage() {
         overflow: "hidden",
       }}>
         <span style={{
-          fontFamily: "'Press Start 2P', monospace",
+          fontFamily: "var(--font-pixel)",
           fontSize: 8, color: C.muted, marginRight: 6, flexShrink: 0,
           userSelect: "none",
         }}>
@@ -126,7 +117,7 @@ export default function CapturePage() {
             outline: "none",
             color: status === "fallback" ? C.medium : C.text,
             fontSize: 12,
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "var(--font-mono)",
             padding: "0 4px",
           }}
         />
@@ -157,7 +148,7 @@ export default function CapturePage() {
             padding: "2px 8px",
             fontSize: 9,
             cursor: "pointer",
-            fontFamily: "'Press Start 2P', monospace",
+            fontFamily: "var(--font-pixel)",
             flexShrink: 0,
           }}
         >

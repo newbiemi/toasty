@@ -226,6 +226,50 @@ function sanitisePatch(patch: Record<string, any> | undefined): Record<string, a
   return out;
 }
 
+/** Same field-name discipline `apply()` writes with, but read-only — the line the
+ *  diff preview (Phase 3) shows before anything changes. Kept in lockstep with
+ *  apply()'s own summary lines below on purpose: whatever this says will happen
+ *  is exactly what apply() will do with the same resolutions. */
+export function previewResolutions(resolutions: Resolution[]): {
+  summary: string[];
+  questions: string[];
+  applicable: Resolution[];
+} {
+  const summary: string[] = [];
+  const questions: string[] = [];
+  const applicable: Resolution[] = [];
+
+  for (const r of resolutions) {
+    if (r.confidence === "ambiguous" || r.confidence === "none") {
+      if (r.question) questions.push(r.question);
+      continue;
+    }
+    applicable.push(r);
+    const patch = sanitisePatch(r.intent.patch);
+
+    if (r.intent.op === "add") {
+      summary.push(`Would add "${patch.title || "Untitled task"}"`);
+      continue;
+    }
+    for (const t of r.matched) {
+      if (r.intent.op === "delete") {
+        summary.push(`Would delete "${t.title}"`);
+      } else if (r.intent.op === "complete") {
+        summary.push(`Would mark "${t.title}" done`);
+      } else {
+        const fields = Object.keys(patch);
+        summary.push(
+          r.intent.op === "move" && patch.dueDate
+            ? `Would move "${t.title}" to ${patch.dueDate}`
+            : `Would update ${fields.length > 0 ? fields.join(", ") : "nothing"} on "${t.title}"`
+        );
+      }
+    }
+  }
+
+  return { summary, questions, applicable };
+}
+
 /** Highest `tN` id in use, matching the renderer's scheme (TaskDashboard nextIds).
  *  apply() counts up from this once per batch — recomputing it per add would
  *  hand two new tasks in the same batch the same id. */

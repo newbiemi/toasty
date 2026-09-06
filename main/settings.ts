@@ -3,9 +3,12 @@ import * as path from "path";
 import { app } from "electron";
 
 export interface ToastySettings {
-  mode: "window" | "pet";
   catX: number;
   catY: number;
+  /** The task widget's own position — separate from the cat's, since Phase 3
+   *  made them two independently-draggable windows instead of one mode toggle. */
+  widgetX: number;
+  widgetY: number;
   petMinimized: boolean;
   quietHoursEnabled: boolean;
   quietFrom: number;
@@ -20,9 +23,10 @@ export interface ToastySettings {
 }
 
 const DEFAULTS: ToastySettings = {
-  mode: "window",
   catX: 50,
   catY: 50,
+  widgetX: 460,
+  widgetY: 50,
   petMinimized: false,
   quietHoursEnabled: false,
   quietFrom: 22,

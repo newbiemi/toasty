@@ -7,19 +7,23 @@ contextBridge.exposeInMainWorld("toasty", {
   deleteTask: (id: string) => ipcRenderer.invoke("db:delete", id),
   clearDone: () => ipcRenderer.invoke("db:clearDone"),
 
-  // ── AI ──
+  // ── AI: single-task parse/adjust ──
   parse: (text: string) => ipcRenderer.invoke("ai:parse", text),
   adjust: (taskJSON: string, instruction: string) =>
     ipcRenderer.invoke("ai:adjust", taskJSON, instruction),
   listModels: () => ipcRenderer.invoke("ai:models"),
 
-  // ── Settings + Mode ──
+  // ── AI: selector-based adjust engine (diff preview) ──
+  previewAdjust: (instruction: string) => ipcRenderer.invoke("task:preview", instruction),
+  applyAdjust: () => ipcRenderer.invoke("task:applyAdjust"),
+  undoAdjust: () => ipcRenderer.invoke("task:undoAdjust"),
+
+  // ── Settings ──
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSettings: (patch: any) => ipcRenderer.invoke("settings:set", patch),
-  toggleMode: () => ipcRenderer.invoke("window:toggleMode"),
   setPetSize: (size: "dot" | "full") => ipcRenderer.invoke("pet:setSize", size),
 
-  // ── Window controls (custom drag bar) ──
+  // ── Widget window controls (custom drag bar) ──
   minimize: () => ipcRenderer.invoke("window:minimize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
   setOpacity: (value: number) => ipcRenderer.invoke("window:setOpacity", value),
@@ -32,6 +36,15 @@ contextBridge.exposeInMainWorld("toasty", {
   openChat: () => ipcRenderer.invoke("window:openChat"),
   closeChat: () => ipcRenderer.invoke("window:closeChat"),
   chat: (messages: any[]) => ipcRenderer.invoke("ai:chat", messages),
+
+  // ── Menu window ──
+  openMenu: () => ipcRenderer.invoke("window:openMenu"),
+  closeMenu: () => ipcRenderer.invoke("window:closeMenu"),
+
+  // ── Cat click — main decides: restore the widget if hidden, else open the menu ──
+  catClicked: () => ipcRenderer.invoke("window:catClicked"),
+  // ── Cat right-click — Open Widget/Menu/Quit, in case the tray icon is hidden ──
+  catRightClicked: () => ipcRenderer.invoke("window:catRightClicked"),
 
   // ── Auto-launch ──
   setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke("window:setAutoLaunch", enabled),
@@ -77,8 +90,15 @@ contextBridge.exposeInMainWorld("toasty", {
   },
   installUpdate: () => ipcRenderer.invoke("app:installUpdate"),
 
-  // ── Reset (temporary trigger only — real UI lands in the Phase 3 menu) ──
+  // ── Reset — UI lives in the menu window's Data & Reset section ──
   resetSettings: () => ipcRenderer.invoke("app:resetSettings"),
   resetTasks: () => ipcRenderer.invoke("app:resetTasks"),
   resetAll: () => ipcRenderer.invoke("app:resetAll"),
+
+  // ── Task list changed out from under the widget (currently: a reset) ──
+  onTasksChanged: (cb: () => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("tasks:changed", handler);
+    return () => ipcRenderer.removeListener("tasks:changed", handler);
+  },
 });

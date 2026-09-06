@@ -1,15 +1,18 @@
 import { app, ipcMain, globalShortcut } from "electron";
 import { listTasks, saveTask, deleteTask, clearDone } from "./db";
 import { parseTasks, adjustTask, chat, checkOllama, listModels } from "./ai";
+import { readIntents, resolve, apply, undo, previewResolutions, type Resolution, type UndoToken } from "./adjust";
 import { getSettings, setSettings } from "./settings";
 import {
-  createMainWindow, createPetWindow, setupTray,
-  toggleMode, pushCatState, setPetSize,
-  minimizeMain, hideMain, setMainOpacity,
+  createWidgetWindow, createPetWindow, setupTray,
+  pushCatState, setPetSize,
+  minimizeWidget, hideWidget, setWidgetOpacity,
   openCaptureWindow, closeCaptureWindow,
   openChatWindow, closeChatWindow,
+  openMenuWindow, closeMenuWindow, handleCatClicked, showCatContextMenu,
   applyAutoLaunch, setSkipTaskbar, pushOllamaStatus,
-  movePetWindow, getPetPosition, pushReminder, setPetIgnoreMouse,
+  movePetWindow, getPetPosition,
+  pushReminder, pushTasksChanged, setPetIgnoreMouse,
   focusExisting,
 } from "./windows";
 import { initAutoUpdater, checkForUpdates, installUpdate } from "./updater";
@@ -41,16 +44,55 @@ ipcMain.handle("ai:adjust", async (_e, taskJSON, instruction) => {
   finally { pushCatState("idle"); }
 });
 
-// ─── IPC: Settings + Mode ─────────────────────
+// ─── IPC: selector-based adjust engine (main/adjust.ts) ───────────────────
+// Both the pending resolutions and the last undo token live here, in module
+// scope, and never round-trip through the renderer. That is what makes undo
+// safe: apply() always acts on rows it just resolved against the live DB
+// itself, not on a Resolution[] the renderer could have held onto past a
+// change to those same rows, and the token dies with the process — no journal
+// on disk that could resurrect a task deleted on purpose days ago.
+let pendingResolutions: Resolution[] | null = null;
+let pendingUndo: UndoToken | null = null;
+
+ipcMain.handle("task:preview", async (_e, instruction: string) => {
+  pushCatState("thinking");
+  try {
+    const intents = await readIntents(instruction);
+    const resolutions = intents.map((i) => resolve(i));
+    pendingResolutions = resolutions;
+    const { summary, questions, applicable } = previewResolutions(resolutions);
+    return { summary, questions, canApply: applicable.length > 0 };
+  } finally {
+    pushCatState("idle");
+  }
+});
+
+ipcMain.handle("task:applyAdjust", async () => {
+  if (!pendingResolutions) return { changed: 0, created: [], summary: [] };
+  const result = apply(pendingResolutions);
+  pendingResolutions = null;
+  pendingUndo = result.undo;
+  pushCatState("happy");
+  setTimeout(() => pushCatState("idle"), 2000);
+  return { changed: result.changed, created: result.created, summary: result.summary };
+});
+
+ipcMain.handle("task:undoAdjust", async () => {
+  if (!pendingUndo) return { restored: 0, removed: 0 };
+  const result = undo(pendingUndo);
+  pendingUndo = null;
+  return result;
+});
+
+// ─── IPC: Settings ─────────────────────────────
 ipcMain.handle("settings:get", () => getSettings());
 ipcMain.handle("settings:set", (_e, patch) => setSettings(patch));
-ipcMain.handle("window:toggleMode", () => toggleMode());
 ipcMain.handle("pet:setSize", (_e, size: "dot" | "full") => setPetSize(size));
 
-// ─── IPC: Window controls (custom drag bar) ───
-ipcMain.handle("window:minimize", () => minimizeMain());
-ipcMain.handle("window:close", () => hideMain());
-ipcMain.handle("window:setOpacity", (_e, value: number) => setMainOpacity(value));
+// ─── IPC: Widget window controls (custom drag bar) ────
+ipcMain.handle("window:minimize", () => minimizeWidget());
+ipcMain.handle("window:close", () => hideWidget());
+ipcMain.handle("window:setOpacity", (_e, value: number) => setWidgetOpacity(value));
 
 // ─── IPC: Capture window ──────────────────────
 ipcMain.handle("window:openCapture", () => openCaptureWindow());
@@ -59,6 +101,15 @@ ipcMain.handle("window:closeCapture", () => closeCaptureWindow());
 // ─── IPC: Chat window ─────────────────────────
 ipcMain.handle("window:openChat", () => openChatWindow());
 ipcMain.handle("window:closeChat", () => closeChatWindow());
+
+// ─── IPC: Menu window ──────────────────────────
+ipcMain.handle("window:openMenu", () => openMenuWindow());
+ipcMain.handle("window:closeMenu", () => closeMenuWindow());
+
+// ─── IPC: Cat click — bring the widget back if it's hidden, else open the menu ──
+ipcMain.handle("window:catClicked", () => handleCatClicked());
+// ─── IPC: Cat right-click — Open Widget/Menu/Quit, in case the tray icon is hidden ──
+ipcMain.handle("window:catRightClicked", () => showCatContextMenu());
 
 // Minimal task builder for use inside main process (mirrors renderer/lib/taskFromParsed.ts logic)
 function buildTaskForDB(parsed: any, id: string): any {
@@ -151,10 +202,26 @@ ipcMain.handle("ai:models", () => listModels());
 ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("app:installUpdate", () => installUpdate());
 
-// ─── IPC: Reset (temporary trigger only — real UI lands in the Phase 3 menu) ──
+// ─── IPC: Reset (UI lives in the menu window's Data & Reset section) ──
+// Both task-affecting resets must drop any pending adjust state and tell the
+// widget to reload — otherwise a stale UndoToken from before the reset could
+// resurrect rows the reset just deleted on purpose, and the widget's task
+// list (React state loaded once) would keep showing rows that no longer exist.
 ipcMain.handle("app:resetSettings", () => resetSettings());
-ipcMain.handle("app:resetTasks", () => resetTasks());
-ipcMain.handle("app:resetAll", () => resetAll());
+ipcMain.handle("app:resetTasks", () => {
+  pendingResolutions = null;
+  pendingUndo = null;
+  const result = resetTasks();
+  pushTasksChanged();
+  return result;
+});
+ipcMain.handle("app:resetAll", () => {
+  pendingResolutions = null;
+  pendingUndo = null;
+  const result = resetAll();
+  pushTasksChanged();
+  return result;
+});
 
 // ─── Ambient state tick ───────────────────────
 function isInQuietHours(h: number, from: number, to: number): boolean {
@@ -205,13 +272,11 @@ if (!gotTheLock) {
   app.on("ready", async () => {
     initAutoUpdater();
     setupTray();
-    const s = getSettings();
     applyAutoLaunch();
-    if (s.mode === "pet") {
-      await createPetWindow();
-    } else {
-      await createMainWindow();
-    }
+    // No more window/pet mode split — the cat and the task widget are both
+    // always up; the menu window opens on demand from a cat click or the tray.
+    await createPetWindow();
+    await createWidgetWindow();
     tickAmbient();
     setInterval(tickAmbient, 60_000);
     // Check for updates after windows load so push events have a target

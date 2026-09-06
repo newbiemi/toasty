@@ -1,14 +1,6 @@
 import Head from "next/head";
 import React, { useState, useEffect, useRef } from "react";
-
-const C = {
-  cream: "#f4e4c1",
-  panel: "#ecd9b0",
-  border: "#5a3e2b",
-  text: "#5a3e2b",
-  muted: "#9a7a5a",
-  orange: "#e8943b",
-};
+import { C } from "@/lib/theme";
 
 type Message = { role: "user" | "assistant"; content: string; tasksSaved?: number };
 
@@ -55,7 +47,7 @@ export default function ChatPage() {
           html, body, #__next {
             margin: 0; padding: 0; overflow: hidden;
             background: ${C.panel};
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             width: 360px; height: 460px;
           }
           * { box-sizing: border-box; }
@@ -81,7 +73,7 @@ export default function ChatPage() {
         } as React.CSSProperties}>
           <span style={{
             color: C.cream, fontSize: 8,
-            fontFamily: "'Press Start 2P', monospace",
+            fontFamily: "var(--font-pixel)",
           }}>
             🐱 toasty chat
           </span>
@@ -107,7 +99,7 @@ export default function ChatPage() {
           {messages.length === 0 && !loading && (
             <div style={{
               color: C.muted, fontSize: 8,
-              fontFamily: "'Press Start 2P', monospace",
+              fontFamily: "var(--font-pixel)",
               textAlign: "center", marginTop: 48, lineHeight: 2,
             }}>
               meow! what&apos;s on your mind?
@@ -132,10 +124,10 @@ export default function ChatPage() {
               {!!m.tasksSaved && m.tasksSaved > 0 && (
                 <div style={{
                   fontSize: 8, color: C.orange,
-                  fontFamily: "'Press Start 2P', monospace",
+                  fontFamily: "var(--font-pixel)",
                   marginTop: 3,
                 }}>
-                  ✓ {m.tasksSaved} task{m.tasksSaved > 1 ? "s" : ""} saved to dashboard
+                  ✓ {m.tasksSaved} task{m.tasksSaved > 1 ? "s" : ""} saved
                 </div>
               )}
             </div>
@@ -178,7 +170,7 @@ export default function ChatPage() {
               flex: 1, resize: "none",
               background: "transparent", border: "none", outline: "none",
               color: C.text, fontSize: 11,
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: "var(--font-mono)",
               padding: "4px 2px", lineHeight: 1.4,
             }}
           />
@@ -191,7 +183,7 @@ export default function ChatPage() {
               border: `2px solid ${C.border}`,
               padding: "4px 8px", fontSize: 8,
               cursor: loading || !input.trim() ? "default" : "pointer",
-              fontFamily: "'Press Start 2P', monospace",
+              fontFamily: "var(--font-pixel)",
               flexShrink: 0, alignSelf: "center",
             }}
           >

@@ -4,14 +4,18 @@ import serve from "electron-serve";
 import { getSettings, setSettings } from "./settings";
 
 const isProd = process.env.NODE_ENV === "production";
-const loadURL = isProd ? serve({ directory: "app" }) : null;
+// Registers the "app://" protocol every window's prod loadURL relies on — the
+// returned helper isn't used directly (every window calls .loadURL("app://...")
+// itself), only this side effect.
+if (isProd) serve({ directory: "app" });
 const PRELOAD = path.join(__dirname, "preload.js");
 const DEV_URL = "http://localhost:8888";
 
-export let mainWin: BrowserWindow | null = null;
+export let widgetWin: BrowserWindow | null = null;
 export let petWin: BrowserWindow | null = null;
 export let captureWin: BrowserWindow | null = null;
 export let chatWin: BrowserWindow | null = null;
+export let menuWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 function webPrefs() {
@@ -32,27 +36,80 @@ function setupAppMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-export async function createMainWindow(): Promise<BrowserWindow> {
+// The widget: ~420×520, frameless, always-on-top, position restored from
+// settings (widgetX/widgetY — deliberately separate from the cat's catX/catY,
+// since they are two independently-draggable windows now). Holds the task
+// list, the parse/adjust prompts and the diff preview; everything else lives
+// in the menu window (see createMenuWindow below).
+export const WIDGET_W = 420;
+export const WIDGET_H = 520;
+
+export async function createWidgetWindow(): Promise<BrowserWindow> {
   const s = getSettings();
-  mainWin = new BrowserWindow({
-    width: 1280,
-    height: 800,
+  widgetWin = new BrowserWindow({
+    x: s.widgetX, y: s.widgetY,
+    width: WIDGET_W,
+    height: WIDGET_H,
     frame: false,          // custom drag bar in the renderer
     transparent: false,    // use setOpacity instead (true breaks win32 hit-testing)
     alwaysOnTop: true,
+    resizable: false,
     skipTaskbar: s.skipTaskbar ?? false,
     icon: resourcePath("icon.png"),
     webPreferences: webPrefs(),
   });
-  mainWin.setOpacity(s.opacity ?? 1.0);
-  mainWin.on("closed", () => { mainWin = null; });
+  widgetWin.setOpacity(s.opacity ?? 1.0);
+  // Same DPI-drift fix as the pet window (A1/A3 below): persist on "move" and
+  // re-assert bounds rather than trust accumulated setPosition calls.
+  widgetWin.on("move", () => {
+    if (!widgetWin) return;
+    const [x, y] = widgetWin.getPosition();
+    setSettings({ widgetX: x, widgetY: y });
+  });
+  widgetWin.on("closed", () => { widgetWin = null; });
   if (isProd) {
-    await (loadURL as any)(mainWin);
+    widgetWin.loadURL("app://./widget.html");
   } else {
-    mainWin.loadURL(`${DEV_URL}/`);
+    widgetWin.loadURL(`${DEV_URL}/widget`);
   }
   setupAppMenu();
-  return mainWin;
+  return widgetWin;
+}
+
+// ── Menu window — Settings · AI · Appearance · Data & Reset · About/Updates.
+// Opened on demand (cat click, tray), not always visible like the widget.
+const MENU_W = 460;
+const MENU_H = 420;
+
+export async function openMenuWindow(): Promise<void> {
+  if (menuWin && !menuWin.isDestroyed()) { menuWin.focus(); return; }
+  const s = getSettings();
+  const { screen } = require("electron");
+  const { workAreaSize } = screen.getPrimaryDisplay();
+  const [catX, catY] = (petWin && !petWin.isDestroyed())
+    ? petWin.getPosition()
+    : [s.catX ?? 50, s.catY ?? 50];
+  const xCandidate = catX + PET_W + 8;
+  const x = Math.min(Math.max(0, xCandidate + MENU_W <= workAreaSize.width ? xCandidate : catX - MENU_W - 8), workAreaSize.width - MENU_W);
+  const y = Math.min(Math.max(0, catY), workAreaSize.height - MENU_H);
+  menuWin = new BrowserWindow({
+    x, y, width: MENU_W, height: MENU_H,
+    frame: false, transparent: false,
+    alwaysOnTop: true, skipTaskbar: true, resizable: false,
+    icon: resourcePath("icon.png"),
+    webPreferences: webPrefs(),
+  });
+  menuWin.setOpacity(s.opacity ?? 1.0);
+  menuWin.on("closed", () => { menuWin = null; });
+  if (isProd) {
+    menuWin.loadURL("app://./menu.html");
+  } else {
+    menuWin.loadURL(`${DEV_URL}/menu`);
+  }
+}
+
+export function closeMenuWindow(): void {
+  if (menuWin && !menuWin.isDestroyed()) menuWin.close();
 }
 
 // PET_FULL / PET_CAT (88) is the cat's own hit-region — kept as the on-screen
@@ -194,24 +251,39 @@ export function setupTray() {
   updateTrayMenu();
 }
 
-function updateTrayMenu() {
-  if (!tray) return;
+/** Show the widget if it exists (restoring it from a hide/minimize), or
+ *  create it fresh if it was never opened or got destroyed. */
+function showOrCreateWidget(): void {
+  if (widgetWin && !widgetWin.isDestroyed()) {
+    if (widgetWin.isMinimized()) widgetWin.restore();
+    widgetWin.show();
+    widgetWin.focus();
+  } else {
+    createWidgetWindow();
+  }
+}
+
+/** The cat is the only always-visible "Toasty" affordance once the widget is
+ *  hidden (its ✕ hides to tray, same as the old dashboard) — clicking it
+ *  should read as "bring Toasty back" in that case, not as "open settings".
+ *  Once the widget is already up, a click is free to mean "open the menu". */
+export function handleCatClicked(): void {
+  const widgetUp = widgetWin && !widgetWin.isDestroyed() && widgetWin.isVisible() && !widgetWin.isMinimized();
+  if (widgetUp) openMenuWindow();
+  else showOrCreateWidget();
+}
+
+/** Shared by the tray's right-click menu and the cat's right-click menu —
+ *  one definition of "how to reach every window, and how to quit" so there
+ *  is always at least one visible way to do both. Rebuilt each time it's
+ *  shown so "Start on Login"'s checkmark is never stale. */
+function buildAppMenu(): Menu {
   const s = getSettings();
-  tray.setContextMenu(Menu.buildFromTemplate([
+  return Menu.buildFromTemplate([
     { label: `Toasty v${app.getVersion()}`, enabled: false },
     { type: "separator" },
-    {
-      label: s.mode === "window" ? "Open Toasty" : "Switch to Window Mode",
-      click: () => {
-        if (s.mode !== "window") toggleMode();
-        else if (mainWin) { mainWin.show(); mainWin.focus(); }
-        else createMainWindow();
-      },
-    },
-    {
-      label: s.mode === "window" ? "Switch to Pet Mode" : "Switch to Window Mode",
-      click: () => toggleMode(),
-    },
+    { label: "Open Widget", click: () => showOrCreateWidget() },
+    { label: "Open Menu", click: () => openMenuWindow() },
     { type: "separator" },
     {
       label: s.openAtLogin ? "✓ Start on Login" : "Start on Login",
@@ -219,35 +291,46 @@ function updateTrayMenu() {
         const next = !s.openAtLogin;
         setSettings({ openAtLogin: next });
         app.setLoginItemSettings({ openAtLogin: next, name: "Toasty" });
+        // Refreshes the tray's own (persistent) menu instance so its checkmark
+        // isn't stale next time; a cat-menu popup is already rebuilt fresh.
         updateTrayMenu();
       },
     },
     { type: "separator" },
     { label: "Quit Toasty", click: () => app.quit() },
-  ]));
+  ]);
 }
 
-export async function toggleMode() {
-  const s = getSettings();
-  const next: "window" | "pet" = s.mode === "window" ? "pet" : "window";
-  setSettings({ mode: next });
-  if (next === "pet") {
-    if (mainWin && !mainWin.isDestroyed()) mainWin.close();
-    await createPetWindow();
-  } else {
-    if (petWin && !petWin.isDestroyed()) petWin.close();
-    await createMainWindow();
-  }
-  updateTrayMenu();
+function updateTrayMenu() {
+  if (!tray) return;
+  tray.setContextMenu(buildAppMenu());
+}
+
+/** Right-click on the cat — the fallback path to Quit once the widget is
+ *  hidden and the widget's own ✕ isn't reachable. The tray icon is the same
+ *  menu, but a tray icon can end up collapsed into Windows' hidden-icons
+ *  overflow, so the cat needs its own way there. */
+export function showCatContextMenu(): void {
+  const menu = buildAppMenu();
+  if (petWin && !petWin.isDestroyed()) menu.popup({ window: petWin });
+}
+
+/** Every window that shows the cat sprite or needs to react to its state. */
+function catStateTargets(): BrowserWindow[] {
+  return [petWin, widgetWin].filter((w): w is BrowserWindow => !!w && !w.isDestroyed());
 }
 
 export function pushCatState(state: string) {
-  const win = mainWin ?? petWin;
-  if (win && !win.isDestroyed()) win.webContents.send("cat:state", state);
+  for (const w of catStateTargets()) w.webContents.send("cat:state", state);
 }
 
+/** Widget shows the AI status pill; menu's AI section shows it too. Broadcast,
+ *  not mainWin-only — mainWin doesn't exist any more, and the old single-target
+ *  send silently went dead once it did (this is the Phase 3 push-channel hazard). */
 export function pushOllamaStatus(status: "running" | "offline") {
-  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send("ollama:status", status);
+  for (const w of [widgetWin, menuWin]) {
+    if (w && !w.isDestroyed()) w.webContents.send("ollama:status", status);
+  }
 }
 
 export function setPetSize(size: "dot" | "full") {
@@ -266,22 +349,25 @@ export function setPetSize(size: "dot" | "full") {
   petWin.setPosition(x, y);
 }
 
-// ── Window controls (called via IPC from the custom drag bar) ──
-export function minimizeMain() {
-  if (mainWin && !mainWin.isDestroyed()) mainWin.minimize();
+// ── Widget window controls (called via IPC from its custom drag bar) ──
+export function minimizeWidget() {
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.minimize();
 }
 
-export function hideMain() {
+export function hideWidget() {
   // "Close" hides to tray (consistent with tray-app lifecycle)
-  if (mainWin && !mainWin.isDestroyed()) mainWin.hide();
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.hide();
 }
 
-export function setMainOpacity(value: number) {
+/** Applies to every window that renders real content — widget, menu, capture,
+ *  chat. Not petWin: its transparent canvas has no background to dim, and
+ *  dimming the cat itself was never the point of this slider. */
+export function setWidgetOpacity(value: number) {
   const clamped = Math.min(1, Math.max(0.2, value));
   setSettings({ opacity: clamped });
-  if (mainWin && !mainWin.isDestroyed()) mainWin.setOpacity(clamped);
-  if (captureWin && !captureWin.isDestroyed()) captureWin.setOpacity(clamped);
-  if (chatWin && !chatWin.isDestroyed()) chatWin.setOpacity(clamped);
+  for (const w of [widgetWin, menuWin, captureWin, chatWin]) {
+    if (w && !w.isDestroyed()) w.setOpacity(clamped);
+  }
 }
 
 export function applyAutoLaunch() {
@@ -291,7 +377,7 @@ export function applyAutoLaunch() {
 
 export function setSkipTaskbar(value: boolean) {
   setSettings({ skipTaskbar: value });
-  if (mainWin && !mainWin.isDestroyed()) mainWin.setSkipTaskbar(value);
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.setSkipTaskbar(value);
 }
 
 export function getPetPosition(): { x: number; y: number } {
@@ -322,13 +408,24 @@ export function movePetWindow(x: number, y: number) {
   }
 }
 
-export function pushReminder(tasks: any[]) {
-  const win = mainWin ?? petWin;
-  if (win && !win.isDestroyed()) win.webContents.send("toasty:reminder", tasks);
+/** Fired after anything that changes the task list from outside the widget's
+ *  own React state — currently just the menu's Data & Reset actions. Without
+ *  this the widget shows stale tasks after a reset, and a leftover undo token
+ *  could resurrect rows a reset just deleted on purpose. */
+export function pushTasksChanged() {
+  if (widgetWin && !widgetWin.isDestroyed()) widgetWin.webContents.send("tasks:changed");
 }
 
+export function pushReminder(tasks: any[]) {
+  for (const w of catStateTargets()) w.webContents.send("toasty:reminder", tasks);
+}
+
+/** Menu's About/Updates section owns the update banner; widget shows a compact
+ *  version of it too, so both need the push (widget was the mainWin-only miss). */
 export function pushUpdateStatus(status: object) {
-  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send("update:status", status);
+  for (const w of [widgetWin, menuWin]) {
+    if (w && !w.isDestroyed()) w.webContents.send("update:status", status);
+  }
 }
 
 export function setPetIgnoreMouse(ignore: boolean) {
@@ -336,17 +433,15 @@ export function setPetIgnoreMouse(ignore: boolean) {
     petWin.setIgnoreMouseEvents(ignore, { forward: true });
 }
 
-// ── Single-instance: focus whichever window is currently active ──
+// ── Single-instance: focus everything a second launch should surface ──
 export function focusExisting(): void {
-  const s = getSettings();
-  if (s.mode === "window" && mainWin && !mainWin.isDestroyed()) {
-    mainWin.show();
-    if (mainWin.isMinimized()) mainWin.restore();
-    mainWin.focus();
-  } else if (petWin && !petWin.isDestroyed()) {
+  if (widgetWin && !widgetWin.isDestroyed()) {
+    widgetWin.show();
+    if (widgetWin.isMinimized()) widgetWin.restore();
+    widgetWin.focus();
+  }
+  if (petWin && !petWin.isDestroyed()) {
     petWin.show();
     petWin.focus();
-    // Surface the capture box as a visible acknowledgement in pet mode
-    openCaptureWindow();
   }
 }

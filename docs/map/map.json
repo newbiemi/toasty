@@ -107,6 +107,12 @@
           "fan_out": 0
         },
         {
+          "path": "bench/.build/main/adjust",
+          "lang": "js",
+          "fan_in": 1,
+          "fan_out": 5
+        },
+        {
           "path": "bench/.build/main/ai",
           "lang": "js",
           "fan_in": 1,
@@ -165,18 +171,32 @@
           "lang": "ts",
           "fan_in": 1,
           "fan_out": 2
-        },
-        {
-          "path": "main/updater",
-          "lang": "ts",
-          "fan_in": 1,
-          "fan_out": 1
         }
       ],
-      "edge_count_total": 66,
-      "edge_count_kept": 39,
-      "omitted_edges": 27,
+      "edge_count_total": 64,
+      "edge_count_kept": 43,
+      "omitted_edges": 21,
       "edges": [
+        {
+          "from": "bench/.build/main/adjust",
+          "to": "bench/.build/main/aiShared"
+        },
+        {
+          "from": "bench/.build/main/adjust",
+          "to": "bench/.build/main/dateUtils"
+        },
+        {
+          "from": "bench/.build/main/adjust",
+          "to": "bench/.build/main/db"
+        },
+        {
+          "from": "bench/.build/main/adjust",
+          "to": "bench/.build/main/parseRules"
+        },
+        {
+          "from": "bench/.build/main/adjust",
+          "to": "bench/.build/main/providers/chain"
+        },
         {
           "from": "bench/.build/main/ai",
           "to": "bench/.build/main/dateUtils"
@@ -326,10 +346,6 @@
           "to": "main/settings"
         },
         {
-          "from": "main/updater",
-          "to": "main/windows"
-        },
-        {
           "from": "main/windows",
           "to": "main/settings"
         }
@@ -368,11 +384,9 @@
       "components": [
         "renderer/components/Cat.tsx",
         "renderer/components/CatSvg.tsx",
-        "renderer/components/MenuPanel.tsx",
-        "renderer/components/TaskDashboard.tsx",
         "renderer/components/TaskEditModal.tsx"
       ],
-      "component_count_total": 5,
+      "component_count_total": 3,
       "omitted_components": 0
     },
     "services": {
@@ -406,7 +420,7 @@
       ],
       "decision_count_total": 1,
       "omitted_decisions": 0,
-      "todo_count": 0
+      "todo_count": 9
     },
     "cross_project": {
       "status": "pending",
@@ -415,7 +429,7 @@
   },
   "truncated": {
     "modules": 46,
-    "module_edges": 27
+    "module_edges": 21
   },
   "warnings": []
 }

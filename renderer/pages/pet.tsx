@@ -1,11 +1,11 @@
 import Head from "next/head";
 import { useEffect, useState, useRef } from "react";
 import CatSvg, { MOTION } from "../components/CatSvg";
-import MenuPanel from "../components/MenuPanel";
 import type { FaceExpression } from "../lib/toastyFaces";
 
-// Fixed canvas big enough to hold the cat + an open menu, so opening the menu
-// never resizes the OS window (which would fight the size-lock in windows.ts).
+// Fixed canvas — kept at its Phase-1/2 size even though the menu moved into its
+// own window (Phase 3): shrinking it would mean re-tuning the DPI-drift-tested
+// size-lock constants in main/windows.ts for no functional gain.
 // Must match PET_W/PET_H in main/windows.ts.
 const PET_W = 340;
 const PET_H = 300;
@@ -15,10 +15,8 @@ export default function PetPage() {
   const [catState, setCatState] = useState("idle");
   const [minimized, setMinimized] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [interaction, setInteraction] = useState<"petting" | "tapped" | "dragging" | null>(null);
   const [postDragGrumpy, setPostDragGrumpy] = useState(false);
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const grumpyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // IPC-based drag state — avoids WebkitAppRegion:"no-drag" covering the entire cat
@@ -28,7 +26,6 @@ export default function PetPage() {
 
   const ignoreRef = useRef(false);      // current setIgnoreMouseEvents state
   const minimizedRef = useRef(false);   // mirror of minimized state for use inside event handlers
-  const menuOpenRef = useRef(false);    // mirror of menuOpen for use inside event handlers
   const interactionRef = useRef<typeof interaction>(null); // mirror of interaction for use inside event handlers
 
   // Keep minimizedRef in sync; reset to interactive when entering dot mode
@@ -40,7 +37,6 @@ export default function PetPage() {
     }
   }, [minimized]);
 
-  useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
   useEffect(() => { interactionRef.current = interaction; }, [interaction]);
 
   useEffect(() => {
@@ -74,15 +70,14 @@ export default function PetPage() {
 
       // Click-through via SVG DOM hit-testing: the cat is an inline SVG (no
       // rasterized frame to alpha-sample), so instead we ask "is the element
-      // under the cursor part of the painted cat, the minimize button, or the
-      // open menu?" Anything else in the fixed PET_W×PET_H canvas is empty
-      // canvas and should pass clicks through to whatever is behind Toasty.
+      // under the cursor part of the painted cat, or the minimize button?"
+      // Anything else in the fixed PET_W×PET_H canvas is empty canvas and
+      // should pass clicks through to whatever is behind Toasty. (The menu is
+      // its own window now, not an in-canvas panel, so it no longer needs a
+      // hit-test exception here.)
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const catHit = el?.closest("[data-cat-hit]");
-      const hit =
-        el?.closest("[data-min-btn]") ||
-        catHit ||
-        (menuOpenRef.current && el?.closest("[data-menu-hit]"));
+      const hit = el?.closest("[data-min-btn]") || catHit;
       const shouldIgnore = !hit;
 
       if (shouldIgnore !== ignoreRef.current) {
@@ -164,28 +159,31 @@ export default function PetPage() {
     e.stopPropagation();
     const next = !minimized;
     setMinimized(next);
-    if (next) setMenuOpen(false);
     window.toasty.setPetSize(next ? "dot" : "full");
   };
 
+  // Dot mode never wired up dragging at all — onMouseDown alone starts the
+  // drag; whether the click that follows should restore Toasty depends on
+  // whether that mousedown turned into an actual drag (same guard full mode's
+  // handleCatClick already uses).
+  const handleDotClick = (e: React.MouseEvent) => {
+    if (dragRef.current.moved) { dragRef.current.moved = false; return; }
+    handleMinimize(e);
+  };
+
+  // A click brings the widget back if it's hidden, or opens the menu if the
+  // widget's already up — main process decides which, since it holds the
+  // widget's actual visibility state. No more double-click mode toggle (that
+  // whole window/pet mode split is gone as of Phase 3).
   const handleCatClick = () => {
     // Ignore if this was a drag (mouse moved more than 3px)
     if (dragRef.current.moved) { dragRef.current.moved = false; return; }
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-      window.toasty.toggleMode();
-    } else {
-      setInteraction("tapped");
-      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
-      tapTimerRef.current = setTimeout(() => {
-        setInteraction((cur) => (cur === "tapped" ? null : cur));
-      }, MOTION.squash.ms);
-      clickTimer.current = setTimeout(() => {
-        clickTimer.current = null;
-        setMenuOpen((o) => !o);
-      }, 250);
-    }
+    setInteraction("tapped");
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => {
+      setInteraction((cur) => (cur === "tapped" ? null : cur));
+    }, MOTION.squash.ms);
+    window.toasty.catClicked();
   };
 
   // Priority: alert > post-drag grumpy > petting/happy smile > idle-hover curious.
@@ -211,18 +209,20 @@ export default function PetPage() {
       {minimized ? (
         /* ── Dot mode ── */
         <div
-          onClick={handleMinimize}
+          onMouseDown={handleMouseDown}
+          onClick={handleDotClick}
+          onContextMenu={(e) => { e.preventDefault(); window.toasty.catRightClicked(); }}
           style={{
             width: 34, height: 34,
             borderRadius: "50%",
             background: "#e8943b",
             border: "3px solid #5a3e2b",
-            cursor: "pointer",
+            cursor: "grab",
             WebkitAppRegion: "no-drag",
             display: "flex", alignItems: "center", justifyContent: "center",
             userSelect: "none",
           } as React.CSSProperties}
-          title="Restore Toasty"
+          title="Drag to move — click to restore Toasty"
         >
           <CatSvg variant="head" size={26} />
         </div>
@@ -233,6 +233,7 @@ export default function PetPage() {
             onMouseDown={handleMouseDown}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
+            onContextMenu={(e) => { e.preventDefault(); window.toasty.catRightClicked(); }}
             style={{
               position: "absolute", left: 0, top: 0,
               width: CAT_BOX, height: CAT_BOX,
@@ -265,12 +266,6 @@ export default function PetPage() {
               <CatSvg state={catState} size={72} interaction={interaction} expression={expression} onClick={handleCatClick} />
             </div>
           </div>
-
-          {menuOpen && (
-            <div style={{ position: "absolute", left: CAT_BOX + 8, top: 0 }}>
-              <MenuPanel />
-            </div>
-          )}
         </div>
       )}
     </>
