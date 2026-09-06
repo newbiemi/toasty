@@ -2,8 +2,11 @@
 // No LLM, no IO — instant and can never freeze the machine.
 // Used as the offline/no-key fallback for parseTasks() and as the
 // authoritative date/time/link validator for the Groq anti-hallucination cross-check.
-import { todayStr, tomorrowStr, addDays, nextWeekday } from "./dateUtils";
+import { todayStr, tomorrowStr, addDays, nextWeekday, nowDate, localDateStr } from "./dateUtils";
 import { getKnownCategories } from "./aiShared";
+
+// Every "what day is it" read goes through nowDate() — never `new Date()` directly.
+// The benchmark pins a reference date, and a stray `new Date()` silently ignores it.
 
 // ── Time extraction ──────────────────────────────────────────────────────────
 
@@ -25,6 +28,22 @@ const TIME_PATTERNS: TimePattern[] = [
   [/\bnoon\b/i, () => "12:00"],
   // "midnight"
   [/\bmidnight\b/i, () => "00:00"],
+  // Bare hour: "standup at 9", "coffee at 3 tomorrow". Deliberately last, so
+  // anything with am/pm or a colon is claimed by the patterns above first.
+  //
+  // Two guards keep this from eating ordinary numbers ("look at 5 candidates"):
+  // it must follow "at", and it must be followed by end-of-input, punctuation,
+  // "o'clock", or a date word. Hours 1–7 read as afternoon ("lunch at 1" = 13:00),
+  // 8–12 as written — the usual convention, and wrong occasionally by design.
+  [
+    /\bat\s+(\d{1,2})(?:\s*o'?clock)?(?=\s*$|\s*[.,;!?]|\s+(?:on|today|tomorrow|tonight|tmrw|tmr|sharp|next|this)\b)/i,
+    (m) => {
+      let h = parseInt(m[1], 10);
+      if (h >= 1 && h <= 7) h += 12;
+      if (h > 23) h = 12;
+      return `${String(h).padStart(2, "0")}:00`;
+    },
+  ],
 ];
 
 function extractTime(text: string): { time: string | null; rest: string } {
@@ -52,32 +71,84 @@ const MONTH_NAMES: Record<string, number> = {
   nov: 10, november: 10, dec: 11, december: 11,
 };
 
+/** Midnight today, for "is this candidate date in the past?" comparisons. */
+function startOfToday(): Date {
+  const n = nowDate();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
+/** A calendar date the user most likely meant.
+ *  With no explicit year, a day that has already passed rolls to next year —
+ *  "Jan 15" said in September means next January, not eight months ago. */
+function futureDate(monthIdx: number, day: number, explicitYear?: number): string {
+  const year = explicitYear ?? nowDate().getFullYear();
+  let cand = new Date(year, monthIdx, day);
+  if (explicitYear === undefined && cand < startOfToday()) cand = new Date(year + 1, monthIdx, day);
+  return localDateStr(cand);
+}
+
+/** Same idea one unit down: a bare day-of-month rolls to next month, not next year.
+ *  "pay the invoices on the 3rd" said on the 16th means the 3rd of next month. */
+function futureDayOfMonth(day: number): string {
+  const n = nowDate();
+  let cand = new Date(n.getFullYear(), n.getMonth(), day);
+  if (cand < startOfToday()) cand = new Date(n.getFullYear(), n.getMonth() + 1, day);
+  return localDateStr(cand);
+}
+
+const NUMBER_WORDS: Record<string, number> = {
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+  seven: 7, eight: 8, nine: 9, ten: 10,
+};
+
 function extractDate(text: string): { date: string | null; rest: string } {
+  const strip = (m: string) => text.replace(m, " ").replace(/\s+/g, " ").trim();
+
   // YYYY-MM-DD (explicit ISO)
   const iso = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
-  if (iso) return { date: iso[1], rest: text.replace(iso[0], " ").replace(/\s+/g, " ").trim() };
+  if (iso) return { date: iso[1], rest: strip(iso[0]) };
 
   // DD/MM or DD/MM/YYYY
   const slash = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/);
   if (slash) {
-    const year = slash[3] ? parseInt(slash[3], 10) : new Date().getFullYear();
-    const month = String(parseInt(slash[2], 10)).padStart(2, "0");
-    const day = String(parseInt(slash[1], 10)).padStart(2, "0");
-    return { date: `${year}-${month}-${day}`, rest: text.replace(slash[0], " ").replace(/\s+/g, " ").trim() };
+    const year = slash[3] ? parseInt(slash[3], 10) : undefined;
+    return {
+      date: futureDate(parseInt(slash[2], 10) - 1, parseInt(slash[1], 10), year),
+      rest: strip(slash[0]),
+    };
   }
 
-  // "Jan 15" / "15 Jan"
+  // "Jan 15" / "Jan 15th" / "15 Jan" / "15th Jan" — ordinal suffix optional
   for (const [name, idx] of Object.entries(MONTH_NAMES)) {
-    const re1 = new RegExp(`\\b${name}\\s+(\\d{1,2})\\b`, "i");
-    const re2 = new RegExp(`\\b(\\d{1,2})\\s+${name}\\b`, "i");
+    const re1 = new RegExp(`\\b${name}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, "i");
+    const re2 = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${name}\\.?\\b`, "i");
     const m = text.match(re1) || text.match(re2);
-    if (m) {
-      const year = new Date().getFullYear();
-      const day = String(parseInt(m[1], 10)).padStart(2, "0");
-      const month = String(idx + 1).padStart(2, "0");
-      return { date: `${year}-${month}-${day}`, rest: text.replace(m[0], " ").replace(/\s+/g, " ").trim() };
-    }
+    if (m) return { date: futureDate(idx, parseInt(m[1], 10)), rest: strip(m[0]) };
   }
+
+  // "in 3 days" / "in two weeks" / "in a month"
+  const inN = text.match(/\bin\s+(\d{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(day|week|month)s?\b/i);
+  if (inN) {
+    const n = /^\d+$/.test(inN[1]) ? parseInt(inN[1], 10) : NUMBER_WORDS[inN[1].toLowerCase()] ?? 1;
+    const unit = inN[2].toLowerCase();
+    if (unit === "month") {
+      const d = nowDate();
+      d.setMonth(d.getMonth() + n);
+      return { date: localDateStr(d), rest: strip(inN[0]) };
+    }
+    return { date: addDays(unit === "week" ? n * 7 : n), rest: strip(inN[0]) };
+  }
+
+  // "end of month" → last day of this month
+  const eom = text.match(/\bend\s+of\s+(?:the\s+)?month\b/i);
+  if (eom) {
+    const n = nowDate();
+    return { date: localDateStr(new Date(n.getFullYear(), n.getMonth() + 1, 0)), rest: strip(eom[0]) };
+  }
+
+  // "end of week" / "EOW" → the upcoming Friday
+  const eow = text.match(/\bend\s+of\s+(?:the\s+)?week\b|\bEOW\b/i);
+  if (eow) return { date: nextWeekday(5), rest: strip(eow[0]) };
 
   // "next week" → +7 days
   if (/\bnext\s+week\b/i.test(text))
@@ -85,8 +156,16 @@ function extractDate(text: string): { date: string | null; rest: string } {
 
   // "next month" → 1st of next month
   if (/\bnext\s+month\b/i.test(text)) {
-    const d = new Date(); d.setMonth(d.getMonth() + 1, 1);
-    return { date: d.toISOString().split("T")[0], rest: text.replace(/\bnext\s+month\b/i, " ").replace(/\s+/g, " ").trim() };
+    const d = nowDate(); d.setMonth(d.getMonth() + 1, 1);
+    return { date: localDateStr(d), rest: text.replace(/\bnext\s+month\b/i, " ").replace(/\s+/g, " ").trim() };
+  }
+
+  // Bare day-of-month: "on the 20th", "due the 3rd". Runs after every pattern
+  // that carries its own month, so "Oct 20th" is already gone by here.
+  const ord = text.match(/\b(?:on\s+|by\s+|due\s+)?(?:the\s+)?(\d{1,2})(st|nd|rd|th)\b/i);
+  if (ord) {
+    const day = parseInt(ord[1], 10);
+    if (day >= 1 && day <= 31) return { date: futureDayOfMonth(day), rest: strip(ord[0]) };
   }
 
   // Named relative terms — longer matches first to avoid partial hits
@@ -96,12 +175,12 @@ function extractDate(text: string): { date: string | null; rest: string } {
         const m = text.match(/\bnext\s+(\w+)\b/i)!;
         const key = m[1].toLowerCase();
         const target = WEEKDAYS[key] ?? 1;
-        const d = new Date();
+        const d = nowDate();
         // "next X" = the X after the upcoming one (skip any this week)
         const diff = (target - d.getDay() + 7) % 7 || 7;
         const skip = diff < 7 ? 7 : 0;
         d.setDate(d.getDate() + diff + skip);
-        return d.toISOString().split("T")[0];
+        return localDateStr(d);
       },
     ],
     [/\btonight\b/i,   todayStr],
@@ -165,7 +244,12 @@ function extractCategory(text: string): { category: string; rest: string } {
 function extractLinks(text: string): { links: string[]; rest: string } {
   const links: string[] = [];
   const rest = text
-    .replace(/https?:\/\/\S+/g, (url) => { links.push(url); return " "; })
+    .replace(/https?:\/\/\S+/g, (url) => {
+      // Trailing sentence punctuation is almost never part of the URL —
+      // "read https://influx.com/leave-2026." must not save the full stop.
+      links.push(url.replace(/[.,;:!?)\]}'"]+$/, ""));
+      return " ";
+    })
     .replace(/\s+/g, " ")
     .trim();
   return { links, rest };

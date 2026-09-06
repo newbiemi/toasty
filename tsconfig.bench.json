@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "bench/.build",
+    "rootDir": ".",
+    "sourceMap": false
+  },
+  "include": [
+    "main/**/*",
+    "renderer/lib/mergeAdjusted.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "app",
+    "bench/.build"
+  ]
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Task, Subtask } from "@/types/task";
 import Cat from "./Cat";
 import { buildTaskFromParsed, safeDate } from "@/lib/taskFromParsed";
+import { mergeAdjusted } from "@/lib/mergeAdjusted";
 
 type UpdateStatus =
   | { type: "checking" }
@@ -213,23 +214,6 @@ function TaskModal({
   const [newSubtask, setNewSubtask] = useState("");
 
   const set = (patch: Partial<Task>) => setT((prev) => ({ ...prev, ...patch }));
-
-  const mergeAdjusted = (prev: Task, patch: any): Task => {
-    // Normalize subtasks: model may return string[] even though we ask for {text,done}[]
-    const rawSubs = patch.subtasks;
-    const subtasks: Subtask[] = Array.isArray(rawSubs)
-      ? rawSubs.map((s: any) => typeof s === "string" ? { text: s, done: false } : s)
-      : prev.subtasks;
-    return {
-      ...prev, ...patch,
-      id: prev.id, createdAt: prev.createdAt,
-      updatedAt: new Date().toISOString(),
-      subtasks,
-      dueDate: safeDate(patch.dueDate ?? prev.dueDate),
-      startDate: safeDate(patch.startDate ?? prev.startDate),
-      dueTime: patch.dueTime ?? prev.dueTime ?? null,
-    };
-  };
 
   const handleAdjust = async () => {
     if (!adjustText.trim()) return;

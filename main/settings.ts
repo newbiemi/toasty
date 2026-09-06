@@ -15,6 +15,7 @@ export interface ToastySettings {
   openAtLogin: boolean;   // launch on OS startup
   skipTaskbar: boolean;   // hide from Windows taskbar
   groqApiKey: string;     // Groq cloud API key (entered in Settings, never shipped)
+  geminiApiKey: string;   // optional second cloud backend for providers/chain.ts; blank = leg skipped
   aiProvider: "groq" | "ollama"; // preferred AI backend; "groq" = cloud-first
 }
 
@@ -31,6 +32,7 @@ const DEFAULTS: ToastySettings = {
   openAtLogin: false,
   skipTaskbar: false,
   groqApiKey: "",
+  geminiApiKey: "",
   aiProvider: "groq",
 };
 

@@ -13,3 +13,8 @@ app/
 renderer/out/
 renderer/.next/
 renderer/next-env.d.ts
+bench/.build/
+
+# Local sprite-reference scratch — stock images, never publish (repo is public)
+cat-lab/shutterstock_images/
+desktop.ini

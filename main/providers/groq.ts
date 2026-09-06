@@ -7,9 +7,13 @@ import { todayStr, tomorrowStr } from "../dateUtils";
 import { ruleParse } from "../parseRules";
 
 const GROQ_BASE = "https://api.groq.com/openai/v1";
-// 70b model — required for reliable title summarization on long inputs.
-// Free tier: 100 req/min (plenty for personal task capture).
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Was llama-3.3-70b-versatile. Groq decommissioned every Llama model — as of
+// 2026-09-05 the account's /models list has none, and every parse call was
+// 404ing with model_not_found. ai.ts catches that and falls back to the rule
+// parser, so the app kept working and never surfaced the failure; the benchmark
+// is what made it visible. gpt-oss-120b is the largest chat model Groq still
+// serves, supports JSON mode, and answers in ~1s.
+const GROQ_MODEL = "openai/gpt-oss-120b";
 // Keep timeouts tight — cloud latency is predictable (unlike local CPU inference)
 const GROQ_PARSE_TIMEOUT_MS = 15_000;
 const GROQ_CHAT_TIMEOUT_MS  = 20_000;
@@ -35,7 +39,11 @@ export async function isGroqAvailable(): Promise<boolean> {
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
-export async function groqParse(text: string): Promise<any[]> {
+/** Groq's own answer, normalised to an array but NOT yet cross-checked against
+ *  the rule parser. Split out from groqParse() so the benchmark can score the raw
+ *  model separately from the cross-checked result — a date the model got right and
+ *  the cross-check then dropped looks identical to a model failure otherwise. */
+export async function groqParseRaw(text: string): Promise<any[]> {
   const key = getSettings().groqApiKey;
   if (!key) throw new Error("No Groq API key configured");
 
@@ -96,31 +104,49 @@ If no task found, return [].`;
       ? parsed
       : (parsed.tasks ?? parsed.data ?? parsed.items ?? (parsed.title ? [parsed] : []));
 
-    const arr = normalizeParsed(unwrapped, text);
-
-    // ── Anti-hallucination: cross-check dates/times/links against rule parser ──
-    // The rule parser cannot fabricate values not in the input text.
-    // If Groq emits a date/time/link the rule parser doesn't find, drop it.
-    // Also: if Groq echoes the input verbatim as the title (> 100 chars), replace
-    // it with the rule-parsed title — keeps Groq's priority/category/subtasks.
-    const ruleResult = ruleParse(text)[0];
-    return arr.map((t: any) => {
-      const validated = validateParsed(t);
-      if (validated.dueDate && !ruleResult.dueDate) validated.dueDate = null;
-      if (validated.dueTime && !ruleResult.dueTime) validated.dueTime = null;
-      if (validated.links?.length > 0 && ruleResult.links.length === 0) validated.links = [];
-      if (!validated.title || validated.title.trim().length > 100) {
-        // Model echoed the input — truncate at word boundary as last resort
-        const raw = (validated.title || ruleResult.title).trim();
-        const cut = raw.slice(0, 80);
-        const lastSpace = cut.lastIndexOf(" ");
-        validated.title = (lastSpace > 20 ? cut.slice(0, lastSpace) : cut).trim();
-      }
-      return validated;
-    });
+    return normalizeParsed(unwrapped, text);
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Cross-check Groq's answer against the rule parser, which is authoritative for
+ *  dates, times and links.
+ *
+ *  Each side does what it is good at. The rule parser derives dates from tokens
+ *  that are literally in the input, so it cannot fabricate one and it cannot get
+ *  weekday arithmetic wrong. Groq is better at the judgement calls — summarising a
+ *  title, picking a priority and category, breaking work into subtasks.
+ *
+ *  So: if the rule parser found a date/time/link, that value wins. If it found
+ *  nothing, Groq's value is dropped (it had nothing in the text to derive it from).
+ *  Everything else is Groq's.
+ *
+ *  This used to be a presence gate only — Groq's value passed through untouched
+ *  whenever both sides found *something*, even when they disagreed. On the
+ *  benchmark's 40 phrases that cost 12 wrong due dates that the rule parser had
+ *  right, including every "next Friday" style weekday. See bench/README.md. */
+export function crossCheck(arr: any[], text: string): any[] {
+  const ruleResult = ruleParse(text)[0];
+  return arr.map((t: any) => {
+    const validated = validateParsed(t);
+    validated.dueDate = ruleResult.dueDate ?? null;
+    validated.dueTime = ruleResult.dueTime ?? null;
+    if (ruleResult.links.length > 0) validated.links = ruleResult.links;
+    else if (validated.links?.length > 0) validated.links = [];
+    if (!validated.title || validated.title.trim().length > 100) {
+      // Model echoed the input — truncate at word boundary as last resort
+      const raw = (validated.title || ruleResult.title).trim();
+      const cut = raw.slice(0, 80);
+      const lastSpace = cut.lastIndexOf(" ");
+      validated.title = (lastSpace > 20 ? cut.slice(0, lastSpace) : cut).trim();
+    }
+    return validated;
+  });
+}
+
+export async function groqParse(text: string): Promise<any[]> {
+  return crossCheck(await groqParseRaw(text), text);
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
@@ -132,7 +158,13 @@ export async function groqChat(
   const key = getSettings().groqApiKey;
   if (!key) throw new Error("No Groq API key configured");
 
-  const system = `You are Toasty, a friendly pixel-cat companion who helps with tasks and productivity. Be warm, concise, and helpful. Today is ${todayStr()}.${taskContext}`;
+  // The chat window renders replies as plain text (pages/chat.tsx:128, white-space:
+  // pre-wrap) — there is no markdown renderer. gpt-oss-120b reaches for bold, headings
+  // and pipe tables unprompted, which show up as literal ** and | characters, so the
+  // formatting rules below are load-bearing, not style advice.
+  const system = `You are Toasty, a friendly pixel-cat companion who helps with tasks and productivity. Be warm, concise, and helpful. Today is ${todayStr()}.
+FORMAT: plain text only. No markdown — no **bold**, no headings, no tables, no backticks. For a list, use short lines starting with "- ". At most one emoji per reply.
+LENGTH: 3 sentences for a simple question. For a list of tasks, one line each and nothing more. Never pad with an offer to help further.${taskContext}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GROQ_CHAT_TIMEOUT_MS);

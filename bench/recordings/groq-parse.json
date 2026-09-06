@@ -1,0 +1,569 @@
+{
+  "referenceDate": "2026-09-16T09:00:00",
+  "model": "llama-3.3-70b-versatile",
+  "recordedAt": "2026-09-06T00:26:29.988Z",
+  "note": "Raw Groq answers, before the rule-parser cross-check. Replayed by `npm run bench` so the gate is offline and deterministic.",
+  "answers": {
+    "plain-no-date": [
+      {
+        "title": "Create onboarding checklist",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "plain-chatty": [
+      {
+        "title": "Follow up with finance team about reimbursement forms",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-today": [
+      {
+        "title": "Submit headcount request",
+        "dueDate": "2026-09-16",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-tomorrow": [
+      {
+        "title": "Send offer letter to Ongki",
+        "dueDate": "2026-09-17",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-tmrw-shorthand": [
+      {
+        "title": "Call vendor",
+        "dueDate": "2026-09-17",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Personal",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-tonight": [
+      {
+        "title": "Review shortlist",
+        "dueDate": "2026-09-16",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-eod": [
+      {
+        "title": "Send payroll file",
+        "dueDate": "2026-09-16",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "EOD",
+        "links": []
+      }
+    ],
+    "date-next-week": [
+      {
+        "title": "Book team offsite",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-next-month": [
+      {
+        "title": "Start Engagement Survey",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "Start the engagement survey next month",
+        "links": []
+      }
+    ],
+    "date-bare-weekday": [
+      {
+        "title": "Run interview panel",
+        "dueDate": "2026-09-17",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-next-weekday": [
+      {
+        "title": "Run interview panel",
+        "dueDate": "2026-09-17",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-next-monday": [
+      {
+        "title": "Kick off probation reviews",
+        "dueDate": "2026-09-21",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-iso": [
+      {
+        "title": "Close recruitment report",
+        "dueDate": "2026-11-03",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-slash-ddmm": [
+      {
+        "title": "Renew office lease",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "Due by 25/12.",
+        "links": []
+      }
+    ],
+    "date-slash-rollover": [
+      {
+        "title": "File annual tax return",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Personal",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-month-name": [
+      {
+        "title": "Prepare December bonus letters",
+        "dueDate": "2026-12-01",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-month-name-rollover": [
+      {
+        "title": "Run salary benchmarking exercise",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-month-name-ordinal": [
+      {
+        "title": "Publish holiday calendar",
+        "dueDate": "2026-10-20",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-bare-ordinal": [
+      {
+        "title": "Collect Timesheets",
+        "dueDate": "2026-09-20",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-bare-ordinal-rollover": [
+      {
+        "title": "Pay contractor invoices",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "Pay on the 3rd",
+        "links": []
+      }
+    ],
+    "date-in-n-days": [
+      {
+        "title": "Chase reference check",
+        "dueDate": "2026-09-19",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-in-two-weeks": [
+      {
+        "title": "Review hiring plan",
+        "dueDate": "2026-09-30",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "date-end-of-month": [
+      {
+        "title": "Close recruitment pipeline report",
+        "dueDate": "2026-09-30",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-pm": [
+      {
+        "title": "Schedule standup with CS team",
+        "dueDate": "2026-09-17",
+        "dueTime": "15:00",
+        "startDate": null,
+        "priority": "medium",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-am-minutes": [
+      {
+        "title": "Interview Naaku",
+        "dueDate": "2026-09-17",
+        "dueTime": "09:30",
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-24h": [
+      {
+        "title": "Attend vendor demo",
+        "dueDate": "2026-09-16",
+        "dueTime": "15:00",
+        "startDate": null,
+        "priority": "high",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-noon": [
+      {
+        "title": "Schedule lunch and learn session",
+        "dueDate": "2026-09-17",
+        "dueTime": "12:00",
+        "startDate": null,
+        "priority": "high",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-bare-hour-morning": [
+      {
+        "title": "Schedule daily sync",
+        "dueDate": null,
+        "dueTime": "09:00",
+        "startDate": null,
+        "priority": "medium",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-bare-hour-afternoon": [
+      {
+        "title": "Schedule coffee chat with new hire",
+        "dueDate": null,
+        "dueTime": "15:00",
+        "startDate": null,
+        "priority": "medium",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "time-only-defaults-today": [
+      {
+        "title": "Schedule team retro",
+        "dueDate": null,
+        "dueTime": "16:00",
+        "startDate": null,
+        "priority": "medium",
+        "category": "Meeting",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "link-https": [
+      {
+        "title": "Review JD draft",
+        "dueDate": "2026-09-19",
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": [
+          "https://docs.google.com/document/d/abc123"
+        ]
+      }
+    ],
+    "link-trailing-punctuation": [
+      {
+        "title": "Read policy update",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": [
+          "https://influx.com/policies/leave-2026"
+        ]
+      }
+    ],
+    "link-two": [
+      {
+        "title": "Compare Greenhouse and Lever reports for ATS decision",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": [
+          "https://greenhouse.io/report",
+          "https://lever.co/report"
+        ]
+      }
+    ],
+    "link-none-invented": [
+      {
+        "title": "Check ATS dashboard for new applicants",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "priority-urgent": [
+      {
+        "title": "Escalate resignation letter to director",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "high",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "Urgent request to forward the resignation letter to the director.",
+        "links": []
+      }
+    ],
+    "priority-low": [
+      {
+        "title": "Tidy up old interview notes",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "low",
+        "category": "HR/Management",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "category-hashtag": [
+      {
+        "title": "Draft CSA job ad",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "category-known-word": [
+      {
+        "title": "Prepare documentation for new leave policy",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Documentation",
+        "subtasks": [],
+        "notes": "",
+        "links": []
+      }
+    ],
+    "long-input-title-summary": [
+      {
+        "title": "Review recruitment funnel for customer support agent role",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "Recruitment",
+        "subtasks": [
+          {
+            "text": "Gather funnel metrics for pre-screen and first interview stages",
+            "done": false
+          },
+          {
+            "text": "Analyze monthly drop‑off rates between pre-screen and first interview",
+            "done": false
+          },
+          {
+            "text": "Identify potential causes for the increasing drop‑off",
+            "done": false
+          },
+          {
+            "text": "Develop recommendations to improve candidate progression",
+            "done": false
+          }
+        ],
+        "notes": "Drop‑off between pre‑screen and first interview has been worsening each month; no one has investigated why.",
+        "links": []
+      }
+    ],
+    "multi-step-subtasks": [
+      {
+        "title": "Prepare onboarding for new analyst",
+        "dueDate": null,
+        "dueTime": null,
+        "startDate": null,
+        "priority": "medium",
+        "category": "HR/Management",
+        "subtasks": [
+          {
+            "text": "Create laptop ticket",
+            "done": false
+          },
+          {
+            "text": "Set up payroll record",
+            "done": false
+          },
+          {
+            "text": "Book buddy session",
+            "done": false
+          },
+          {
+            "text": "Send welcome pack",
+            "done": false
+          }
+        ],
+        "notes": "",
+        "links": []
+      }
+    ]
+  }
+}

@@ -50,9 +50,23 @@ export function validateParsed(t: any): any {
 
 // ── Category helpers ─────────────────────────────────────────────────────────
 
+const DEFAULT_CATEGORIES =
+  "Recruitment, HR/Management, Meeting, Documentation, Engineering, Product Development, Personal";
+
+let categoriesOverride: string | null = null;
+
+/** Pin the category list instead of reading the live DB (benchmark only).
+ *  extractCategory() and the Groq prompt both read from getKnownCategories(), so
+ *  without this a benchmark score would depend on whatever tasks happen to be in
+ *  Fahmi's DB that week. Pass null to restore live behaviour. */
+export function setKnownCategories(list: string | null): void {
+  categoriesOverride = list;
+}
+
 /** Returns the user's most-used categories from the DB as a comma-separated string.
  *  Injected into parse prompts so the model reuses known terms. */
 export function getKnownCategories(): string {
+  if (categoriesOverride !== null) return categoriesOverride;
   try {
     const tasks = listTasks();
     const counts: Record<string, number> = {};
@@ -63,10 +77,8 @@ export function getKnownCategories(): string {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20)
       .map(([c]) => c);
-    return top.length > 0
-      ? top.join(", ")
-      : "Recruitment, HR/Management, Meeting, Documentation, Engineering, Product Development, Personal";
+    return top.length > 0 ? top.join(", ") : DEFAULT_CATEGORIES;
   } catch {
-    return "Recruitment, HR/Management, Meeting, Documentation, Engineering, Personal";
+    return DEFAULT_CATEGORIES;
   }
 }

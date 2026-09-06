@@ -13,44 +13,80 @@
   "layers": {
     "structure": {
       "language_counts": {
-        "js": 17,
+        "js": 36,
         "py": 1,
-        "ts": 19,
+        "ts": 22,
         "tsx": 10
       },
-      "node_count_total": 47,
+      "node_count_total": 69,
       "node_count_kept": 25,
-      "omitted_nodes": 22,
+      "omitted_nodes": 44,
       "nodes": [
+        {
+          "path": "bench/.build/main/settings",
+          "lang": "js",
+          "fan_in": 6,
+          "fan_out": 0
+        },
         {
           "path": "main/settings",
           "lang": "ts",
+          "fan_in": 6,
+          "fan_out": 0
+        },
+        {
+          "path": "bench/.build/main/db",
+          "lang": "js",
           "fan_in": 5,
           "fan_out": 0
         },
         {
           "path": "main/db",
           "lang": "ts",
+          "fan_in": 5,
+          "fan_out": 0
+        },
+        {
+          "path": "bench/.build/main/dateUtils",
+          "lang": "js",
           "fan_in": 4,
           "fan_out": 0
         },
         {
           "path": "main/dateUtils",
           "lang": "ts",
-          "fan_in": 3,
+          "fan_in": 4,
           "fan_out": 0
+        },
+        {
+          "path": "bench/.build/main/aiShared",
+          "lang": "js",
+          "fan_in": 3,
+          "fan_out": 1
+        },
+        {
+          "path": "bench/.build/main/parseRules",
+          "lang": "js",
+          "fan_in": 3,
+          "fan_out": 2
         },
         {
           "path": "main/aiShared",
           "lang": "ts",
-          "fan_in": 2,
+          "fan_in": 3,
           "fan_out": 1
         },
         {
           "path": "main/parseRules",
           "lang": "ts",
-          "fan_in": 2,
+          "fan_in": 3,
           "fan_out": 2
+        },
+        {
+          "path": "bench/.build/main/windows",
+          "lang": "js",
+          "fan_in": 2,
+          "fan_out": 1
         },
         {
           "path": "main/windows",
@@ -65,10 +101,52 @@
           "fan_out": 0
         },
         {
+          "path": "renderer/types/task",
+          "lang": "ts",
+          "fan_in": 2,
+          "fan_out": 0
+        },
+        {
+          "path": "bench/.build/main/ai",
+          "lang": "js",
+          "fan_in": 1,
+          "fan_out": 5
+        },
+        {
+          "path": "bench/.build/main/providers/chain",
+          "lang": "js",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
+          "path": "bench/.build/main/providers/groq",
+          "lang": "js",
+          "fan_in": 1,
+          "fan_out": 4
+        },
+        {
+          "path": "bench/.build/main/reset",
+          "lang": "js",
+          "fan_in": 1,
+          "fan_out": 2
+        },
+        {
+          "path": "bench/.build/main/updater",
+          "lang": "js",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
           "path": "main/ai",
           "lang": "ts",
           "fan_in": 1,
           "fan_out": 5
+        },
+        {
+          "path": "main/providers/chain",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 1
         },
         {
           "path": "main/providers/groq",
@@ -93,90 +171,80 @@
           "lang": "tsx",
           "fan_in": 1,
           "fan_out": 0
-        },
-        {
-          "path": "renderer/components/CatSvg",
-          "lang": "tsx",
-          "fan_in": 1,
-          "fan_out": 2
-        },
-        {
-          "path": "renderer/components/MenuPanel",
-          "lang": "tsx",
-          "fan_in": 1,
-          "fan_out": 0
-        },
-        {
-          "path": "renderer/components/TaskDashboard",
-          "lang": "tsx",
-          "fan_in": 1,
-          "fan_out": 1
-        },
-        {
-          "path": "renderer/lib/toastyCatGrid",
-          "lang": "ts",
-          "fan_in": 1,
-          "fan_out": 0
-        },
-        {
-          "path": "renderer/types/task",
-          "lang": "ts",
-          "fan_in": 1,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/D8KkMgv897eV_jNHvsjEb/_buildManifest",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/D8KkMgv897eV_jNHvsjEb/_ssgManifest",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/chunks/framework-14efab3c3d1ed63b",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/chunks/main-ef0074dfe36c8a63",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/chunks/pages/_app-3f01a8a8f3e13cfd",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/chunks/pages/_error-88e38b962650355f",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/chunks/pages/capture-20f64ba43f274feb",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
-        },
-        {
-          "path": "app/_next/static/chunks/pages/chat-0942779e93ba141f",
-          "lang": "js",
-          "fan_in": 0,
-          "fan_out": 0
         }
       ],
-      "edge_count_total": 30,
-      "edge_count_kept": 19,
-      "omitted_edges": 11,
+      "edge_count_total": 65,
+      "edge_count_kept": 34,
+      "omitted_edges": 31,
       "edges": [
+        {
+          "from": "bench/.build/main/ai",
+          "to": "bench/.build/main/dateUtils"
+        },
+        {
+          "from": "bench/.build/main/ai",
+          "to": "bench/.build/main/db"
+        },
+        {
+          "from": "bench/.build/main/ai",
+          "to": "bench/.build/main/parseRules"
+        },
+        {
+          "from": "bench/.build/main/ai",
+          "to": "bench/.build/main/providers/groq"
+        },
+        {
+          "from": "bench/.build/main/ai",
+          "to": "bench/.build/main/settings"
+        },
+        {
+          "from": "bench/.build/main/aiShared",
+          "to": "bench/.build/main/db"
+        },
+        {
+          "from": "bench/.build/main/parseRules",
+          "to": "bench/.build/main/aiShared"
+        },
+        {
+          "from": "bench/.build/main/parseRules",
+          "to": "bench/.build/main/dateUtils"
+        },
+        {
+          "from": "bench/.build/main/providers/chain",
+          "to": "bench/.build/main/settings"
+        },
+        {
+          "from": "bench/.build/main/providers/groq",
+          "to": "bench/.build/main/aiShared"
+        },
+        {
+          "from": "bench/.build/main/providers/groq",
+          "to": "bench/.build/main/dateUtils"
+        },
+        {
+          "from": "bench/.build/main/providers/groq",
+          "to": "bench/.build/main/parseRules"
+        },
+        {
+          "from": "bench/.build/main/providers/groq",
+          "to": "bench/.build/main/settings"
+        },
+        {
+          "from": "bench/.build/main/reset",
+          "to": "bench/.build/main/db"
+        },
+        {
+          "from": "bench/.build/main/reset",
+          "to": "bench/.build/main/settings"
+        },
+        {
+          "from": "bench/.build/main/updater",
+          "to": "bench/.build/main/windows"
+        },
+        {
+          "from": "bench/.build/main/windows",
+          "to": "bench/.build/main/settings"
+        },
         {
           "from": "main/ai",
           "to": "main/dateUtils"
@@ -210,6 +278,10 @@
           "to": "main/dateUtils"
         },
         {
+          "from": "main/providers/chain",
+          "to": "main/settings"
+        },
+        {
           "from": "main/providers/groq",
           "to": "main/aiShared"
         },
@@ -240,18 +312,6 @@
         {
           "from": "main/windows",
           "to": "main/settings"
-        },
-        {
-          "from": "renderer/components/CatSvg",
-          "to": "renderer/lib/toastyCatGrid"
-        },
-        {
-          "from": "renderer/components/CatSvg",
-          "to": "renderer/lib/toastyFaces"
-        },
-        {
-          "from": "renderer/components/TaskDashboard",
-          "to": "renderer/components/Cat"
         }
       ]
     },
@@ -333,8 +393,8 @@
     }
   },
   "truncated": {
-    "modules": 22,
-    "module_edges": 11
+    "modules": 44,
+    "module_edges": 31
   },
   "warnings": []
 }

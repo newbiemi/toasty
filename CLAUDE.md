@@ -17,7 +17,9 @@ reminds you of deadlines, chats via Groq (or Ollama), and lets you capture thoug
 - **Shell**: Electron (via Nextron) — main process owns all native concerns
 - **Renderer**: Next.js 14 (Pages Router), React 18, TypeScript — inline-style approach kept
 - **Storage**: `better-sqlite3` in Electron main process (`%APPDATA%/Roaming/toasty/toasty.db`)
-- **AI (primary)**: Groq cloud API (`api.groq.com/openai/v1`, model `llama-3.3-70b-versatile`); key stored in `settings.json`, entered via Settings panel; never shipped in the build
+- **AI (primary)**: Groq cloud API (`api.groq.com/openai/v1`, model `openai/gpt-oss-120b`); key stored in `settings.json`, entered via Settings panel; never shipped in the build.
+  Groq removed every Llama model in 2026 — `llama-3.3-70b-versatile` 404s. Free tier caps **tokens** per minute (8k), not requests.
+- **AI (fallback chain)**: `main/providers/chain.ts` — Groq → Gemini → Ollama, ported from `llmroute`'s `chain.py`; 429 falls through, any other error raises. Gemini leg is code-complete but has no key yet.
 - **AI (offline parse fallback)**: deterministic rule parser (`main/parseRules.ts`) — instant, zero CPU, never freezes
 - **AI (chat fallback)**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:1b`, changeable in-app); Phase 9 resource guards remain for this path
 - **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
@@ -61,7 +63,13 @@ Ask before pushing; the mirror push is a separate step from committing to the mo
 npm run dev      # nextron — starts Next.js on :8888 + Electron window
 npm run build    # nextron build — static export + electron-builder
 npm run rebuild  # electron-builder install-app-deps — rebuild native modules for Electron ABI
+
+npm run bench          # parse benchmark — the gate. Offline, replays recorded Groq answers
+npm run bench:adjust   # adjust pipeline: selectors, transaction, undo. Offline, temp DB
+npm run bench:chat     # chat persona check — calls Groq for real
+npm run bench:live     # re-record Groq's answers for the parse benchmark (~6 min, rate-limited)
 ```
+Benchmarks run under Electron, never plain `node` — see `bench/README.md`.
 
 ## Pointer index
 
@@ -69,4 +77,5 @@ npm run rebuild  # electron-builder install-app-deps — rebuild native modules 
 - Key Design Decisions (Phase 3 + Phase 10 — per-mutation saves, `better-sqlite3` ABI rebuild, Ollama resource guards, tray/single-instance lifecycle, IPC drag pattern, NSIS uninstall hook, etc.) → `docs/design-decisions.md`
 - Known Issues / Notes (dev-instance conflicts, `os.freemem()` caveat, transparent-window sizing gotchas, pet-window click-through/size-lock mechanics) → `docs/known-issues.md`
 - Data Import (one-time Supabase → SQLite migration recipe) → `docs/recipes.md`
+- Benchmarks, the pass bar, and why parse is scored three separate ways → `bench/README.md`
 - Phases (dated build history, archived 2026-09-05) → `mimo recall "toasty CLAUDE.md Phases history archived"`

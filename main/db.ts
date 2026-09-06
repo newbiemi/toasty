@@ -81,6 +81,26 @@ export function saveTask(task: any) {
     });
 }
 
+export function getTask(id: string) {
+  const r = getDB().prepare("SELECT * FROM tasks WHERE id = ?").get(id) as any;
+  if (!r) return null;
+  return { ...r, subtasks: JSON.parse(r.subtasks || "[]"), links: JSON.parse(r.links || "[]") };
+}
+
+/** Run `fn` as one all-or-nothing transaction.
+ *
+ *  This is better-sqlite3's own db.transaction(), not hand-rolled BEGIN/COMMIT —
+ *  it handles nesting via savepoints and rolls back on any throw.
+ *
+ *  IMPORTANT: `fn` must be synchronous. better-sqlite3 throws if you hand it an
+ *  async function, and it is right to: an await inside a transaction would let
+ *  other work interleave between BEGIN and COMMIT. Do the slow parts (the LLM
+ *  call, resolving what the user meant) first, then open a transaction around
+ *  nothing but the writes. */
+export function transaction<T>(fn: () => T): T {
+  return getDB().transaction(fn)();
+}
+
 export function deleteTask(id: string) {
   getDB().prepare("DELETE FROM tasks WHERE id = ?").run(id);
 }

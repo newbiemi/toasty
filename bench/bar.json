@@ -1,0 +1,7 @@
+{
+  "_agreedWith": "Fahmi, 2026-09-06",
+  "_why": "The engine scores 64/64 today, but that is partly because the rule parser was fixed against these exact 40 phrases. The bar leaves 4 misses of headroom so new fixtures can be added without the gate going red, while holding the one line that must never move: the app may never invent a date, time or link that was not in what the user typed.",
+  "minAccuracy": 0.94,
+  "maxInvented": 0,
+  "maxBadTitles": 2
+}

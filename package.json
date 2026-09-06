@@ -9,7 +9,12 @@
     "build": "nextron build",
     "rebuild": "electron-builder install-app-deps",
     "icons": "node scripts/generate-icons.js",
-    "migrate": "electron scripts/migrate-from-supabase.js"
+    "migrate": "electron scripts/migrate-from-supabase.js",
+    "bench:build": "tsc -p tsconfig.bench.json",
+    "bench": "npm run bench:build && electron bench/run.js",
+    "bench:live": "npm run bench:build && electron bench/run.js --live",
+    "bench:adjust": "npm run bench:build && electron bench/adjust-smoke.js",
+    "bench:chat": "npm run bench:build && electron bench/chat-check.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
@@ -35,7 +40,10 @@
       "app/**/*"
     ],
     "extraResources": [
-      { "from": "resources", "to": "." }
+      {
+        "from": "resources",
+        "to": "."
+      }
     ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"
