@@ -1,68 +1,44 @@
 import { useEffect, useRef, useState } from "react";
-import { CAT_CELLS, EYE_L_BOX, EYE_R_BOX, DARK, FUR } from "../lib/toastyCatGrid";
-import { FACE_VARIANTS, type FaceExpression } from "../lib/toastyFaces";
+import { useSpriteData } from "../lib/spriteData";
+import { buildMotionCss } from "../lib/motionCss";
+import type { FaceExpression } from "../lib/toastyFaces";
 
 /**
- * Toasty as an inline pixel-SVG — Phase 12: the character is no longer a
- * generated silhouette. Every cell comes from Fahmi's hand-painted grid
- * (cat-lab/toasty-cat-grid.json, painted in the A1/A2 pixel-editor artifacts,
- * approved as REV.07). This component just renders that data and re-attaches
- * the motion rig: breathe, scheduled blink, cursor-tracking eyes.
+ * Toasty as an inline pixel-SVG. Every cell comes from a loaded sprite —
+ * either the shared folder configured in Settings (edited in Loom, the
+ * sprite-lab pixel editor) or, when that folder is unset/missing files, the
+ * bundled cat data in lib/toastyCatGrid.ts / lib/toastyFaces.ts. See
+ * lib/spriteData.ts for the load + fallback logic.
  *
- * Phase 13 adds expression overlays (cat-lab/toasty-faces-grid.json, painted
- * in the A3 editor): the head region is split into a `face-default` group
- * (the blinking/eye-tracking rig, used normally) plus one static `face-<name>`
- * group per FaceExpression, all built once and toggled by CSS via the
- * `expr-<name>` class — no DOM rebuild on expression change.
- *
- * Phase 13 also adds interactive motion (pet/tap/drag/jump), tuned by Fahmi
- * in the toasty-motion-lab artifact and accepted as-is (defaults). Values
- * live in `MOTION` below and cat-lab/toasty-motion.json (edit there,
- * re-transcribe here — this module doesn't read the JSON at runtime).
- * `interaction` classes (`int-tapped`/`int-petting`/`int-dragging`) are
- * driven by pet.tsx; `int-settling` is managed internally by this component
- * as a short-lived echo when `interaction` drops out of "dragging".
+ * The grid can be any cols x rows (Loom allows 4-128) — viewBox, the head
+ * crop, and the shadow/transform-origin are all derived from the loaded
+ * shape at build time, not hardcoded to the original 60x58 cat.
  *
  * Two variants:
  *  - "full"  — the whole cat (pet window). Expression overlays apply here only.
- *  - "head"  — rows <= HEAD_MAX_ROW only (dot-mode icon; scripts/generate-icons.js
- *              reads the same JSON — regenerate icons if the grid changes).
- *              Always renders the default face — no expression or interaction.
+ *  - "head"  — the headBounds crop only (dot-mode icon). Always renders the
+ *              default face — no expression or interaction.
  *
  * The tail is fused into the painted body outline — no independent tail rig
  * this revision.
  */
 
-/* values from cat-lab/toasty-motion.json (Fahmi-tuned via the motion lab,
-   2026-07-11) — edit the JSON, re-transcribe both here and in CAT_CSS below.
-   Every int-* rule below must set `animation:` explicitly (even `none`) —
-   breathe's animation is on the base `.critter` rule and always running, so
-   a rule that only sets a static `transform` gets silently overridden. */
-export const MOTION = {
-  breathe: { periodMs: 1600, scaleY: 1.018 },
-  bounce: { periodMs: 600, px: 10 },
-  jump: { heightPx: 40, periodMs: 470, repeats: 2, squashLand: 0.91 },
-  squash: { scaleX: 1.06, scaleY: 0.92, ms: 180 },
-  purr: { amp: 2.8, periodMs: 320 },
-  scrunch: { scale: 0.94, rotateDeg: -3 },
-  settle: { ms: 260, overshoot: 1.03 },
-  petting: { flipsToTrigger: 4, windowMs: 1000, holdMs: 900 },
-} as const;
-
 const svgNS = "http://www.w3.org/2000/svg";
-const CELL = 10;
-// rows 2-22 AND cols <= 34 are the head — the tail tip also rises into rows
-// 18-22 further right, so the head crop needs both bounds (mirrored in
-// scripts/generate-icons.js).
-const HEAD_MAX_ROW = 22;
-const HEAD_MAX_COL = 34;
 
-const FULL_VIEWBOX = "0 0 600 580";
-const FULL_ASPECT = 580 / 600;
-const HEAD_VIEWBOX = "15 15 330 220";
-const HEAD_ASPECT = 220 / 330;
+// CSS transforms on SVG elements resolve `px` as user-space units of the
+// coordinate system the element sits in, not real screen pixels. MOTION's
+// params (bounce.px, jump.heightPx, the eye-tracking translate(2.4px,1.8px),
+// etc.) were tuned assuming 1 cell = 10 of those units — a viewBox of
+// `0 0 (cols*10) (rows*10)`, matching the original hand-authored 600x580 for
+// the 60x58 cat. Rendering at 1 unit per cell instead (viewBox `0 0 cols
+// rows`) makes every one of those pixel amounts move things 10x too far
+// relative to the grid — e.g. a tracking-eye translate that should nudge the
+// pupil a fraction of its socket instead throws it most of the way to the
+// ears. Keep this scale so motion/eye-tracking numbers stay meaningful.
+const CELL = 10;
 
 type EyeBox = { xmin: number; xmax: number; ymin: number; ymax: number };
+type HeadBounds = { xmin?: number; ymin?: number; xmax: number; ymax: number };
 
 function rect(x: number, y: number, fill: string) {
   const r = document.createElementNS(svgNS, "rect");
@@ -80,66 +56,80 @@ function inBox(x: number, y: number, b: EyeBox) {
 
 /** Open = the painted dark eye cells (cursor-trackable group).
  *  Closed = fur over the socket + a dark lid line at the eye's middle row. */
-function buildEye(box: EyeBox, pupilClass: string) {
+function buildEye(box: EyeBox, pupilClass: string, cells: Record<string, string>, dark: string, fur: string) {
   const wrap = document.createElementNS(svgNS, "g");
   const open = document.createElementNS(svgNS, "g");
   open.setAttribute("class", `eye-open ${pupilClass}`);
-  Object.keys(CAT_CELLS).forEach((key) => {
+  Object.keys(cells).forEach((key) => {
     const [x, y] = key.split(",").map(Number);
-    if (CAT_CELLS[key] === DARK && inBox(x, y, box)) open.appendChild(rect(x, y, DARK));
+    if (cells[key] === dark && inBox(x, y, box)) open.appendChild(rect(x, y, dark));
   });
   const closed = document.createElementNS(svgNS, "g");
   closed.setAttribute("class", "eye-closed");
   const midY = Math.round((box.ymin + box.ymax) / 2);
   for (let y = box.ymin; y <= box.ymax; y++) {
     for (let x = box.xmin; x <= box.xmax; x++) {
-      if (y !== midY) closed.appendChild(rect(x, y, FUR));
+      if (y !== midY) closed.appendChild(rect(x, y, fur));
     }
   }
-  for (let x = box.xmin; x <= box.xmax; x++) closed.appendChild(rect(x, midY, DARK));
+  for (let x = box.xmin; x <= box.xmax; x++) closed.appendChild(rect(x, midY, dark));
   wrap.appendChild(open);
   wrap.appendChild(closed);
   return wrap;
 }
 
-function isHeadCell(x: number, y: number) {
-  return y <= HEAD_MAX_ROW && x <= HEAD_MAX_COL;
+function isHeadCell(x: number, y: number, head: HeadBounds) {
+  return x >= (head.xmin ?? 0) && x <= head.xmax && y >= (head.ymin ?? 0) && y <= head.ymax;
 }
 
 /** Build the static DOM structure once. Mutates `critterGroup`.
  *  Splits cells into a `torso` group (unaffected by expression) and a
- *  `face-default` group (head region + the blink/eye-track rig), then — for
- *  the full variant only — adds one static `face-<name>` group per
- *  FaceExpression from FACE_VARIANTS. CSS toggles which face group is
+ *  `face-default` group (head region + the blink/eye-track rig, when eye
+ *  boxes are known), then — for the full variant only — adds one static
+ *  `face-<name>` group per loaded variant. CSS toggles which face group is
  *  visible; only face-default ever gets the live eye rig. */
-function buildCat(critterGroup: SVGGElement, variant: "full" | "head") {
+function buildCat(
+  critterGroup: SVGGElement,
+  variant: "full" | "head",
+  cells: Record<string, string>,
+  head: HeadBounds,
+  eyeL: EyeBox | undefined,
+  eyeR: EyeBox | undefined,
+  dark: string,
+  fur: string,
+  variants: Record<string, Record<string, string>>
+) {
   const torso = document.createElementNS(svgNS, "g");
   torso.setAttribute("class", "torso");
   const faceDefault = document.createElementNS(svgNS, "g");
   faceDefault.setAttribute("class", "face face-default");
 
-  Object.keys(CAT_CELLS).forEach((key) => {
+  Object.keys(cells).forEach((key) => {
     const [x, y] = key.split(",").map(Number);
-    if (variant === "head" && (y > HEAD_MAX_ROW || x > HEAD_MAX_COL)) return;
-    const head = isHeadCell(x, y);
-    // eye cells in the default face are painted by the eye rig below, not this pass
-    if (head && CAT_CELLS[key] === DARK && (inBox(x, y, EYE_L_BOX) || inBox(x, y, EYE_R_BOX))) return;
-    (head ? faceDefault : torso).appendChild(rect(x, y, CAT_CELLS[key]));
+    if (variant === "head" && !isHeadCell(x, y, head)) return;
+    const inHead = isHeadCell(x, y, head);
+    // eye cells in the default face are painted by the eye rig below instead, when one exists
+    const isEyeCell =
+      inHead && cells[key] === dark && eyeL && eyeR && (inBox(x, y, eyeL) || inBox(x, y, eyeR));
+    if (isEyeCell) return;
+    (inHead ? faceDefault : torso).appendChild(rect(x, y, cells[key]));
   });
-  faceDefault.appendChild(buildEye(EYE_L_BOX, "pupil-l"));
-  faceDefault.appendChild(buildEye(EYE_R_BOX, "pupil-r"));
+  if (eyeL && eyeR) {
+    faceDefault.appendChild(buildEye(eyeL, "pupil-l", cells, dark, fur));
+    faceDefault.appendChild(buildEye(eyeR, "pupil-r", cells, dark, fur));
+  }
 
   critterGroup.appendChild(torso);
   critterGroup.appendChild(faceDefault);
 
   if (variant === "full") {
-    (Object.keys(FACE_VARIANTS) as FaceExpression[]).forEach((name) => {
+    Object.keys(variants).forEach((name) => {
       const g = document.createElementNS(svgNS, "g");
       g.setAttribute("class", `face face-${name}`);
-      const cells = FACE_VARIANTS[name];
-      Object.keys(cells).forEach((key) => {
+      const vCells = variants[name];
+      Object.keys(vCells).forEach((key) => {
         const [x, y] = key.split(",").map(Number);
-        g.appendChild(rect(x, y, cells[key]));
+        g.appendChild(rect(x, y, vCells[key]));
       });
       critterGroup.appendChild(g);
     });
@@ -164,6 +154,7 @@ interface CatSvgProps {
 }
 
 export default function CatSvg({ state = "idle", size = 72, variant = "full", expression = null, interaction = null, onClick }: CatSvgProps) {
+  const sprite = useSpriteData();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const critterRef = useRef<SVGGElement | null>(null);
   const pupilLRef = useRef<SVGGElement | null>(null);
@@ -177,22 +168,22 @@ export default function CatSvg({ state = "idle", size = 72, variant = "full", ex
   useEffect(() => {
     if (prevInteractionRef.current === "dragging" && interaction !== "dragging") {
       setSettling(true);
-      const t = setTimeout(() => setSettling(false), MOTION.settle.ms + 40);
+      const t = setTimeout(() => setSettling(false), (sprite.motions.settle?.ms ?? 260) + 40);
       prevInteractionRef.current = interaction;
       return () => clearTimeout(t);
     }
     prevInteractionRef.current = interaction;
-  }, [interaction]);
+  }, [interaction, sprite.motions.settle]);
 
-  // Build the static structure once.
+  // Build the static structure once per (variant, loaded sprite).
   useEffect(() => {
     const critter = critterRef.current;
     if (!critter) return;
-    buildCat(critter, variant);
+    while (critter.firstChild) critter.removeChild(critter.firstChild);
+    buildCat(critter, variant, sprite.cells, sprite.headBounds, sprite.eyeL, sprite.eyeR, sprite.dark, sprite.fur, sprite.variants);
     pupilLRef.current = critter.querySelector<SVGGElement>(".pupil-l");
     pupilRRef.current = critter.querySelector<SVGGElement>(".pupil-r");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant]);
+  }, [variant, sprite]);
 
   // Blink scheduler + cursor-tracking pupils — only for the interactive full cat,
   // and not while asleep (eyes stay shut regardless).
@@ -237,7 +228,12 @@ export default function CatSvg({ state = "idle", size = 72, variant = "full", ex
     };
   }, [variant, state]);
 
-  const aspect = variant === "head" ? HEAD_ASPECT : FULL_ASPECT;
+  const headW = sprite.headBounds.xmax - (sprite.headBounds.xmin ?? 0) + 1;
+  const headH = sprite.headBounds.ymax - (sprite.headBounds.ymin ?? 0) + 1;
+  const fullViewBox = `0 0 ${sprite.cols * CELL} ${sprite.rows * CELL}`;
+  const headViewBox = `${(sprite.headBounds.xmin ?? 0) * CELL} ${(sprite.headBounds.ymin ?? 0) * CELL} ${headW * CELL} ${headH * CELL}`;
+  const aspect = variant === "head" ? headH / headW : sprite.rows / sprite.cols;
+
   const petting = variant === "full" && interaction === "petting";
   const glyph = variant === "full" ? (petting ? "♥" : STATE_GLYPH[state] ?? null) : null;
   const classes = [
@@ -254,68 +250,56 @@ export default function CatSvg({ state = "idle", size = 72, variant = "full", ex
           parser never entity-decodes, so React's escaped SSR string (quotes -> &quot;)
           permanently mismatches the client's raw string on hydration otherwise. Same
           fix as _document.tsx's global CSS. */}
-      <style dangerouslySetInnerHTML={{ __html: CAT_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: buildCatCss(sprite.motions, Object.keys(sprite.variants)) }} />
       <svg
         ref={svgRef}
         className={classes}
         width={size}
         height={Math.round(size * aspect)}
-        viewBox={variant === "head" ? HEAD_VIEWBOX : FULL_VIEWBOX}
+        viewBox={variant === "head" ? headViewBox : fullViewBox}
         onClick={onClick}
         style={{ cursor: onClick ? "pointer" : "default", userSelect: "none", overflow: "visible" }}
       >
         {variant === "full" && (
-          <ellipse cx="280" cy="574" rx="240" ry="8" fill="#000" opacity="0.22" />
+          <ellipse cx="47%" cy="99%" rx="40%" ry="1.4%" fill="#000" opacity="0.22" />
         )}
         <g ref={critterRef} className="critter" data-cat-hit="1" />
         {glyph && (
-          <text x="430" y="60" className={`state-fx-text${petting ? " heart-pulse" : ""}`} textAnchor="middle">{glyph}</text>
+          <text
+            x="72%"
+            y="10%"
+            className={`state-fx-text${petting ? " heart-pulse" : ""}`}
+            textAnchor="middle"
+            // Absolute unit, not %: SVG resolves text-relative % font-sizes
+            // inconsistently. Scaled to the viewBox width so it stays
+            // proportionate to the sprite, at the original cat's 46-over-600 ratio.
+            style={{ fontSize: sprite.cols * CELL * (46 / 600) }}
+          >
+            {glyph}
+          </text>
         )}
       </svg>
     </>
   );
 }
 
-const CAT_CSS = `
+function buildCatCss(motions: Record<string, Record<string, number>>, variantNames: string[]): string {
+  const exprRules = variantNames
+    .map(
+      (name) => `
+.toasty-cat.expr-${name} .face-default { display: none; }
+.toasty-cat.expr-${name} .face-${name} { display: block; }`
+    )
+    .join("");
+  const exprDefaults = variantNames.map((name) => `.toasty-cat .face-${name}`).join(", ");
+
+  return `
 .toasty-cat {
   shape-rendering: crispEdges;
 }
 
-.toasty-cat .critter { transform-box: view-box; transform-origin: 300px 570px; animation: t-breathe 1600ms ease-in-out infinite; }
-.toasty-cat.state-thinking .critter { animation: t-breathe-slow 6s ease-in-out infinite; }
-.toasty-cat.state-sleep .critter { animation: t-breathe-slow 7s ease-in-out infinite; }
-.toasty-cat.state-happy .critter { animation: t-bounce 0.6s ease-in-out infinite; }
-.toasty-cat.state-alert .critter { animation: t-jump 470ms ease-in-out 2; }
-
-/* Interactive motion (Phase 13) — pet/tap/drag, tuned in the motion-lab
-   artifact (cat-lab/toasty-motion.json). int-settling is a one-shot echo
-   CatSvg applies itself right after a drag ends (see the settling effect
-   above) — it is never set directly by pet.tsx. */
-.toasty-cat.int-tapped .critter { animation: t-squash 180ms ease-out 1; }
-.toasty-cat.int-petting .critter { animation: t-purr 320ms ease-in-out infinite; }
-.toasty-cat.int-dragging .critter { animation: none; transform: scale(0.94) rotate(-3deg); }
-.toasty-cat.int-settling .critter { animation: t-settle 260ms ease-out 1; }
-
-@keyframes t-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.018); } }
-@keyframes t-breathe-slow { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.009); } }
-@keyframes t-bounce { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-@keyframes t-jump {
-  0%, 100% { transform: translateY(0px) scaleY(1); }
-  35% { transform: translateY(-40px) scaleY(1.02); }
-  70% { transform: translateY(0px) scaleY(0.91); }
-  85% { transform: translateY(0px) scaleY(1.01); }
-}
-@keyframes t-squash {
-  0% { transform: scale(1,1); }
-  40% { transform: scale(1.06, 0.92); }
-  100% { transform: scale(1,1); }
-}
-@keyframes t-purr { 0%, 100% { transform: translateX(0px); } 50% { transform: translateX(2.8px); } }
-@keyframes t-settle {
-  0% { transform: scale(0.94) rotate(-3deg); }
-  55% { transform: scale(1.03) rotate(0deg); }
-  100% { transform: scale(1) rotate(0deg); }
-}
+.toasty-cat .critter { transform-box: view-box; transform-origin: 50% 98%; }
+${buildMotionCss(motions)}
 
 .toasty-cat .eye-open { display: block; }
 .toasty-cat .eye-closed { display: none; }
@@ -324,24 +308,17 @@ const CAT_CSS = `
 .toasty-cat.state-sleep .eye-open { display: none; }
 .toasty-cat.state-sleep .eye-closed { display: block; }
 
-/* Expression overlays (Phase 13) — face-default is the live blink/eye-track
-   rig and shows unless an expr-* class picks a static painted face instead. */
+/* Expression overlays — face-default is the live blink/eye-track rig and
+   shows unless an expr-* class picks a static painted face instead. Rules
+   are generated per loaded variant name, not a fixed list of four. */
 .toasty-cat .face-default { display: block; }
-.toasty-cat .face-smile, .toasty-cat .face-curious,
-.toasty-cat .face-startled, .toasty-cat .face-grumpy { display: none; }
-.toasty-cat.expr-smile .face-default { display: none; }
-.toasty-cat.expr-smile .face-smile { display: block; }
-.toasty-cat.expr-curious .face-default { display: none; }
-.toasty-cat.expr-curious .face-curious { display: block; }
-.toasty-cat.expr-startled .face-default { display: none; }
-.toasty-cat.expr-startled .face-startled { display: block; }
-.toasty-cat.expr-grumpy .face-default { display: none; }
-.toasty-cat.expr-grumpy .face-grumpy { display: block; }
+${exprDefaults ? `${exprDefaults} { display: none; }` : ""}
+${exprRules}
 
 .toasty-cat .pupil-l, .toasty-cat .pupil-r { transform-box: fill-box; transform-origin: center; transition: transform 0.14s ease-out; }
 .toasty-cat.state-sleep .pupil-l, .toasty-cat.state-sleep .pupil-r { transition: none; }
 
-.toasty-cat .state-fx-text { font-family: "Cascadia Code", Consolas, ui-monospace, monospace; font-size: 46px; fill: #1f1a17; opacity: 0.85; transform-box: fill-box; transform-origin: center; }
+.toasty-cat .state-fx-text { font-family: "Cascadia Code", Consolas, ui-monospace, monospace; fill: #1f1a17; opacity: 0.85; transform-box: fill-box; transform-origin: center; }
 .toasty-cat .state-fx-text.heart-pulse { animation: t-heart-pulse 600ms ease-in-out infinite; fill: #c4828a; }
 @keyframes t-heart-pulse { 0%, 100% { opacity: 0.6; transform: translateY(0px) scale(1); } 50% { opacity: 1; transform: translateY(-6px) scale(1.15); } }
 
@@ -351,3 +328,4 @@ const CAT_CSS = `
   .toasty-cat .state-fx-text.heart-pulse { animation: none !important; }
 }
 `;
+}

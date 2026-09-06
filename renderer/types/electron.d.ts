@@ -16,6 +16,16 @@ interface ToastySettings {
   groqApiKey: string;
   geminiApiKey: string;
   aiProvider: "groq" | "ollama";
+  spriteFolder: string;
+}
+
+// Raw shapes the shared folder can carry — see main/spriteFolder.ts and
+// lib/spriteData.ts (which merges this onto the bundled cat defaults).
+interface LoadedSpriteFiles {
+  folder: string;
+  grid: { cols: number; rows: number; cells: Record<string, string> } | null;
+  faces: { cols: number; rows: number; variants: Record<string, Record<string, string>>; rig?: unknown } | null;
+  motion: Record<string, unknown> | null;
 }
 
 // Mirrors main/adjust.ts's Resolution/Confidence shapes, serialized over IPC —
@@ -63,6 +73,9 @@ interface ToastyAPI {
   getSettings: () => Promise<ToastySettings>;
   setSettings: (patch: Partial<ToastySettings>) => Promise<ToastySettings>;
   setPetSize: (size: "dot" | "full") => Promise<void>;
+  // Sprite data (shared folder from Loom, Phase 5)
+  loadSpriteData: () => Promise<LoadedSpriteFiles>;
+  chooseSpriteFolder: () => Promise<string | null>;
   // Widget window controls
   minimize: () => Promise<void>;
   closeWindow: () => Promise<void>;

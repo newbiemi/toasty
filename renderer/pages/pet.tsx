@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useEffect, useState, useRef } from "react";
-import CatSvg, { MOTION } from "../components/CatSvg";
+import CatSvg from "../components/CatSvg";
+import { ensureSpriteDataLoaded, getMotion } from "../lib/spriteData";
 import type { FaceExpression } from "../lib/toastyFaces";
 
 // Fixed canvas — kept at its Phase-1/2 size even though the menu moved into its
@@ -47,6 +48,7 @@ export default function PetPage() {
     // to a static (non-interactive) render instead of throwing in this mount
     // effect and tearing down the whole tree.
     if (!window.toasty) return;
+    ensureSpriteDataLoaded(); // kick off the shared-folder load early — getMotion() falls back to bundled defaults until it resolves
     window.toasty.getSettings().then((s) => setMinimized(s.petMinimized));
     const unsub = window.toasty.onCatState((s) => setCatState(s));
 
@@ -98,14 +100,15 @@ export default function PetPage() {
             const sign = dx > 0 ? 1 : -1;
             if (p.lastSign !== 0 && sign !== p.lastSign) {
               const now = Date.now();
-              p.flips = [...p.flips, now].filter((t) => now - t <= MOTION.petting.windowMs);
-              if (p.flips.length >= MOTION.petting.flipsToTrigger) {
+              const petting = getMotion().petting ?? { windowMs: 1000, flipsToTrigger: 4, holdMs: 900 };
+              p.flips = [...p.flips, now].filter((t) => now - t <= petting.windowMs);
+              if (p.flips.length >= petting.flipsToTrigger) {
                 setInteraction("petting");
                 if (p.holdTimer) clearTimeout(p.holdTimer);
                 p.holdTimer = setTimeout(() => {
                   setInteraction((cur) => (cur === "petting" ? null : cur));
                   p.flips = [];
-                }, MOTION.petting.holdMs);
+                }, petting.holdMs);
               }
             }
             p.lastSign = sign;
@@ -182,7 +185,7 @@ export default function PetPage() {
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
     tapTimerRef.current = setTimeout(() => {
       setInteraction((cur) => (cur === "tapped" ? null : cur));
-    }, MOTION.squash.ms);
+    }, getMotion().squash?.ms ?? 180);
     window.toasty.catClicked();
   };
 

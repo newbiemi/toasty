@@ -43,6 +43,8 @@ export default function MenuPage() {
 
   // Appearance
   const [opacity, setOpacity] = useState(1.0);
+  const [spriteFolder, setSpriteFolder] = useState("");
+  const [spriteFolderDraft, setSpriteFolderDraft] = useState("");
 
   // Data & Reset
   const [resetBusy, setResetBusy] = useState<"" | "settings" | "tasks" | "all">("");
@@ -66,6 +68,8 @@ export default function MenuPage() {
       setGeminiKeyDraft(s.geminiApiKey ?? "");
       setAiProvider(s.aiProvider ?? "groq");
       setOpacity(s.opacity ?? 1.0);
+      setSpriteFolder(s.spriteFolder ?? "");
+      setSpriteFolderDraft(s.spriteFolder ?? "");
     });
     window.toasty.listModels().then(setAvailableModels);
     window.toasty.getVersion().then(setAppVersion);
@@ -81,6 +85,15 @@ export default function MenuPage() {
   const handleQuietFrom = (v: number) => { setQuietFrom(v); window.toasty.setSettings({ quietFrom: v }); };
   const handleQuietTo = (v: number) => { setQuietTo(v); window.toasty.setSettings({ quietTo: v }); };
   const handleOpacity = (v: number) => { setOpacity(v); window.toasty.setOpacity(v); };
+  const saveSpriteFolder = (path: string) => {
+    setSpriteFolder(path);
+    setSpriteFolderDraft(path);
+    window.toasty.setSettings({ spriteFolder: path });
+  };
+  const browseSpriteFolder = async () => {
+    const picked = await window.toasty.chooseSpriteFolder();
+    if (picked) saveSpriteFolder(picked);
+  };
   const handleAiProvider = (v: "groq" | "ollama") => { setAiProvider(v); window.toasty.setSettings({ aiProvider: v }); };
 
   const runReset = async (which: "settings" | "tasks" | "all") => {
@@ -239,6 +252,26 @@ export default function MenuPage() {
             </div>
             <p style={{ fontSize: 9, color: C.muted, maxWidth: 260 }}>
               Applies to the widget, this menu, capture, and chat — the cat stays fully opaque.
+            </p>
+            <div style={{ borderTop: `1px solid ${C.border}33`, margin: "10px 0" }} />
+            <div style={row}>
+              <span style={label}>SPRITE FOLDER</span>
+              <input
+                value={spriteFolderDraft}
+                onChange={(e) => setSpriteFolderDraft(e.target.value)}
+                onBlur={() => saveSpriteFolder(spriteFolderDraft.trim())}
+                placeholder="(built-in cat)" style={{ ...inputStyle, fontSize: 11, width: 180 }}
+              />
+              <button onClick={browseSpriteFolder} style={{ ...pixel(), fontSize: 9 }}>BROWSE</button>
+            </div>
+            {spriteFolder && (
+              <button onClick={() => saveSpriteFolder("")} style={{ ...pixel(), fontSize: 9, marginBottom: 6 }}>
+                USE BUILT-IN CAT
+              </button>
+            )}
+            <p style={{ fontSize: 9, color: C.muted, maxWidth: 260 }}>
+              A folder holding toasty-cat-grid.json / toasty-faces-grid.json / toasty-motion.json
+              exported from Loom (the sprite editor). Restart Toasty after changing this.
             </p>
           </div>
         )}

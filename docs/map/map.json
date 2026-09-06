@@ -13,24 +13,24 @@
   "layers": {
     "structure": {
       "language_counts": {
-        "js": 36,
+        "js": 38,
         "py": 1,
-        "ts": 23,
+        "ts": 26,
         "tsx": 11
       },
-      "node_count_total": 71,
+      "node_count_total": 76,
       "node_count_kept": 25,
-      "omitted_nodes": 46,
+      "omitted_nodes": 51,
       "nodes": [
-        {
-          "path": "bench/.build/main/settings",
-          "lang": "js",
-          "fan_in": 6,
-          "fan_out": 0
-        },
         {
           "path": "main/settings",
           "lang": "ts",
+          "fan_in": 7,
+          "fan_out": 0
+        },
+        {
+          "path": "bench/.build/main/settings",
+          "lang": "js",
           "fan_in": 6,
           "fan_out": 0
         },
@@ -83,6 +83,18 @@
           "fan_out": 2
         },
         {
+          "path": "renderer/lib/spriteData",
+          "lang": "ts",
+          "fan_in": 3,
+          "fan_out": 2
+        },
+        {
+          "path": "renderer/lib/toastyFaces",
+          "lang": "ts",
+          "fan_in": 3,
+          "fan_out": 0
+        },
+        {
           "path": "bench/.build/main/windows",
           "lang": "js",
           "fan_in": 2,
@@ -93,12 +105,6 @@
           "lang": "ts",
           "fan_in": 2,
           "fan_out": 1
-        },
-        {
-          "path": "renderer/lib/toastyFaces",
-          "lang": "ts",
-          "fan_in": 2,
-          "fan_out": 0
         },
         {
           "path": "renderer/types/task",
@@ -165,17 +171,11 @@
           "lang": "ts",
           "fan_in": 1,
           "fan_out": 4
-        },
-        {
-          "path": "main/reset",
-          "lang": "ts",
-          "fan_in": 1,
-          "fan_out": 2
         }
       ],
-      "edge_count_total": 64,
-      "edge_count_kept": 43,
-      "omitted_edges": 21,
+      "edge_count_total": 71,
+      "edge_count_kept": 42,
+      "omitted_edges": 29,
       "edges": [
         {
           "from": "bench/.build/main/adjust",
@@ -338,16 +338,12 @@
           "to": "main/settings"
         },
         {
-          "from": "main/reset",
-          "to": "main/db"
-        },
-        {
-          "from": "main/reset",
-          "to": "main/settings"
-        },
-        {
           "from": "main/windows",
           "to": "main/settings"
+        },
+        {
+          "from": "renderer/lib/spriteData",
+          "to": "renderer/lib/toastyFaces"
         }
       ]
     },
@@ -428,8 +424,8 @@
     }
   },
   "truncated": {
-    "modules": 46,
-    "module_edges": 21
+    "modules": 51,
+    "module_edges": 29
   },
   "warnings": []
 }

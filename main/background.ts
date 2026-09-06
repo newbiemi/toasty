@@ -3,6 +3,7 @@ import { listTasks, saveTask, deleteTask, clearDone } from "./db";
 import { parseTasks, adjustTask, chat, checkOllama, listModels } from "./ai";
 import { readIntents, resolve, apply, undo, previewResolutions, type Resolution, type UndoToken } from "./adjust";
 import { getSettings, setSettings } from "./settings";
+import { loadSpriteFiles, chooseSpriteFolder } from "./spriteFolder";
 import {
   createWidgetWindow, createPetWindow, setupTray,
   pushCatState, setPetSize,
@@ -88,6 +89,10 @@ ipcMain.handle("task:undoAdjust", async () => {
 ipcMain.handle("settings:get", () => getSettings());
 ipcMain.handle("settings:set", (_e, patch) => setSettings(patch));
 ipcMain.handle("pet:setSize", (_e, size: "dot" | "full") => setPetSize(size));
+
+// ─── IPC: Sprite data (shared folder from Loom, Phase 5) ──────
+ipcMain.handle("sprite:load", () => loadSpriteFiles());
+ipcMain.handle("sprite:chooseFolder", () => chooseSpriteFolder());
 
 // ─── IPC: Widget window controls (custom drag bar) ────
 ipcMain.handle("window:minimize", () => minimizeWidget());

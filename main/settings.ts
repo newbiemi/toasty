@@ -20,6 +20,10 @@ export interface ToastySettings {
   groqApiKey: string;     // Groq cloud API key (entered in Settings, never shipped)
   geminiApiKey: string;   // optional second cloud backend for providers/chain.ts; blank = leg skipped
   aiProvider: "groq" | "ollama"; // preferred AI backend; "groq" = cloud-first
+  /** Folder holding toasty-cat-grid.json / toasty-faces-grid.json / toasty-motion.json
+   *  exported from Loom (personal_projects/sprite-lab). Blank = use the bundled cat.
+   *  A change here takes effect on the next restart, not live. */
+  spriteFolder: string;
 }
 
 const DEFAULTS: ToastySettings = {
@@ -38,6 +42,7 @@ const DEFAULTS: ToastySettings = {
   groqApiKey: "",
   geminiApiKey: "",
   aiProvider: "groq",
+  spriteFolder: "",
 };
 
 let _cache: ToastySettings | null = null;

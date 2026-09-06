@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld("toasty", {
   setSettings: (patch: any) => ipcRenderer.invoke("settings:set", patch),
   setPetSize: (size: "dot" | "full") => ipcRenderer.invoke("pet:setSize", size),
 
+  // ── Sprite data (shared folder from Loom, Phase 5) ──
+  loadSpriteData: () => ipcRenderer.invoke("sprite:load"),
+  chooseSpriteFolder: () => ipcRenderer.invoke("sprite:chooseFolder"),
+
   // ── Widget window controls (custom drag bar) ──
   minimize: () => ipcRenderer.invoke("window:minimize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
