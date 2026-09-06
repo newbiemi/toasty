@@ -1,6 +1,6 @@
 {
   "name": "toasty",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Pixel-cat task companion — Groq cloud AI, offline rule fallback, Electron + SQLite",
   "private": true,
   "main": "app/background.js",
