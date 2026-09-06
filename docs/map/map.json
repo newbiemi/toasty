@@ -15,12 +15,12 @@
       "language_counts": {
         "js": 36,
         "py": 1,
-        "ts": 22,
-        "tsx": 10
+        "ts": 23,
+        "tsx": 11
       },
-      "node_count_total": 69,
+      "node_count_total": 71,
       "node_count_kept": 25,
-      "omitted_nodes": 44,
+      "omitted_nodes": 46,
       "nodes": [
         {
           "path": "bench/.build/main/settings",
@@ -137,6 +137,12 @@
           "fan_out": 1
         },
         {
+          "path": "main/adjust",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 5
+        },
+        {
           "path": "main/ai",
           "lang": "ts",
           "fan_in": 1,
@@ -165,17 +171,11 @@
           "lang": "ts",
           "fan_in": 1,
           "fan_out": 1
-        },
-        {
-          "path": "renderer/components/Cat",
-          "lang": "tsx",
-          "fan_in": 1,
-          "fan_out": 0
         }
       ],
-      "edge_count_total": 65,
-      "edge_count_kept": 34,
-      "omitted_edges": 31,
+      "edge_count_total": 66,
+      "edge_count_kept": 39,
+      "omitted_edges": 27,
       "edges": [
         {
           "from": "bench/.build/main/ai",
@@ -244,6 +244,26 @@
         {
           "from": "bench/.build/main/windows",
           "to": "bench/.build/main/settings"
+        },
+        {
+          "from": "main/adjust",
+          "to": "main/aiShared"
+        },
+        {
+          "from": "main/adjust",
+          "to": "main/dateUtils"
+        },
+        {
+          "from": "main/adjust",
+          "to": "main/db"
+        },
+        {
+          "from": "main/adjust",
+          "to": "main/parseRules"
+        },
+        {
+          "from": "main/adjust",
+          "to": "main/providers/chain"
         },
         {
           "from": "main/ai",
@@ -349,9 +369,10 @@
         "renderer/components/Cat.tsx",
         "renderer/components/CatSvg.tsx",
         "renderer/components/MenuPanel.tsx",
-        "renderer/components/TaskDashboard.tsx"
+        "renderer/components/TaskDashboard.tsx",
+        "renderer/components/TaskEditModal.tsx"
       ],
-      "component_count_total": 4,
+      "component_count_total": 5,
       "omitted_components": 0
     },
     "services": {
@@ -393,8 +414,8 @@
     }
   },
   "truncated": {
-    "modules": 44,
-    "module_edges": 31
+    "modules": 46,
+    "module_edges": 27
   },
   "warnings": []
 }

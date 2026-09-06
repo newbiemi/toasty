@@ -34,12 +34,12 @@ graph LR
   n16["bench/.build/main/providers/groq"]
   n17["bench/.build/main/reset"]
   n18["bench/.build/main/updater"]
-  n19["main/ai"]
-  n20["main/providers/chain"]
-  n21["main/providers/groq"]
-  n22["main/reset"]
-  n23["main/updater"]
-  n24["renderer/components/Cat"]
+  n19["main/adjust"]
+  n20["main/ai"]
+  n21["main/providers/chain"]
+  n22["main/providers/groq"]
+  n23["main/reset"]
+  n24["main/updater"]
   n14 --> n4
   n14 --> n2
   n14 --> n7
@@ -57,22 +57,27 @@ graph LR
   n17 --> n0
   n18 --> n10
   n10 --> n0
+  n19 --> n8
   n19 --> n5
   n19 --> n3
   n19 --> n9
   n19 --> n21
-  n19 --> n1
+  n20 --> n5
+  n20 --> n3
+  n20 --> n9
+  n20 --> n22
+  n20 --> n1
   n8 --> n3
   n9 --> n8
   n9 --> n5
-  n20 --> n1
-  n21 --> n8
-  n21 --> n5
-  n21 --> n9
   n21 --> n1
-  n22 --> n3
+  n22 --> n8
+  n22 --> n5
+  n22 --> n9
   n22 --> n1
-  n23 --> n11
+  n23 --> n3
+  n23 --> n1
+  n24 --> n11
   n11 --> n1
 ```
 
@@ -97,14 +102,14 @@ graph LR
 | bench/.build/main/providers/groq | js | 1 | 4 |
 | bench/.build/main/reset | js | 1 | 2 |
 | bench/.build/main/updater | js | 1 | 1 |
+| main/adjust | ts | 1 | 5 |
 | main/ai | ts | 1 | 5 |
 | main/providers/chain | ts | 1 | 1 |
 | main/providers/groq | ts | 1 | 4 |
 | main/reset | ts | 1 | 2 |
 | main/updater | ts | 1 | 1 |
-| renderer/components/Cat | tsx | 1 | 0 |
 
-_44 more modules omitted - see `map.json`._
+_46 more modules omitted - see `map.json`._
 
 </details>
 
@@ -136,11 +141,12 @@ _no key routes found (a route must reference a table by name, e.g. `.from('table
 
 **Fonts:** -
 
-**Components:** 4 found
+**Components:** 5 found
 - `renderer/components/Cat.tsx`
 - `renderer/components/CatSvg.tsx`
 - `renderer/components/MenuPanel.tsx`
 - `renderer/components/TaskDashboard.tsx`
+- `renderer/components/TaskEditModal.tsx`
 
 </details>
 

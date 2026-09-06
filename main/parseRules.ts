@@ -302,7 +302,7 @@ function extractSubtasks(text: string): { text: string; done: boolean }[] {
       return firstWord && !NON_VERB.test(firstWord);
     });
     // Require 3+ verb-led clauses without an explicit marker, so a single "and"
-    // joining names or objects ("Email Ongki and Budi") does not produce subtasks.
+    // joining names or objects ("Email the recruiter and the hiring lead") does not produce subtasks.
     if (verbLed.length >= 3) {
       segment = parts.join(", ");
     }

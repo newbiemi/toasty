@@ -43,7 +43,7 @@
     },
     {
       "id": "date-tomorrow",
-      "text": "send the offer letter to Ongki tomorrow",
+      "text": "send the offer letter to the candidate tomorrow",
       "expect": {
         "dueDate": "2026-09-17",
         "dueTime": null,
@@ -272,7 +272,7 @@
     },
     {
       "id": "time-am-minutes",
-      "text": "interview Naaku at 9:30am on Friday",
+      "text": "interview the shortlisted candidate at 9:30am on Friday",
       "expect": {
         "dueDate": "2026-09-18",
         "dueTime": "09:30"
@@ -468,7 +468,7 @@
     },
     {
       "id": "ordinal-round-not-a-date",
-      "text": "schedule the 2nd interview round with Naaku",
+      "text": "schedule the 2nd interview round with the candidate",
       "expect": {
         "dueDate": null,
         "dueTime": null
