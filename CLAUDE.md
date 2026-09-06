@@ -22,7 +22,7 @@ reminds you of deadlines, chats via Groq (or Ollama), and lets you capture thoug
 - **AI (fallback chain)**: `main/providers/chain.ts` — Groq → Gemini → Ollama, ported from `llmroute`'s `chain.py`; 429 falls through, any other error raises. Gemini leg is code-complete but has no key yet.
 - **AI (offline parse fallback)**: deterministic rule parser (`main/parseRules.ts`) — instant, zero CPU, never freezes
 - **AI (chat fallback)**: Ollama HTTP (`localhost:11434`), model driven by `Settings.model` (default `llama3.2:1b`, changeable in-app); Phase 9 resource guards remain for this path
-- **Font**: JetBrains Mono fallback chain (offline-safe — no Google Fonts)
+- **Font**: Plus Jakarta Sans, self-hosted (Phase 3, replaced Silkscreen/JetBrains Mono) — Regular for body (`--font-mono`), SemiBold for labels/headers (`--font-pixel`, name kept for the CSS var only). `renderer/public/fonts/`, no Google Fonts network dependency.
 - **IPC**: `window.toasty.*` via Electron `contextBridge`
 
 ## IPC Surface (`window.toasty`)

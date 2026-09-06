@@ -8,22 +8,29 @@ export default function Document() {
           dangerouslySetInnerHTML={{
             __html: `
               @font-face {
-                font-family: 'Silkscreen';
+                font-family: 'Plus Jakarta Sans';
                 font-style: normal;
                 font-weight: 400;
                 font-display: block;
-                src: url('/fonts/silkscreen-regular.woff2') format('woff2');
+                src: url('/fonts/plus-jakarta-sans-regular.ttf') format('truetype');
               }
+              /* Registered under its own family name, not as a 600 weight of the
+                 family above, so --font-pixel can pick it up without every call
+                 site that uses that var needing an explicit fontWeight. */
               @font-face {
-                font-family: 'Silkscreen';
+                font-family: 'Plus Jakarta Sans SemiBold';
                 font-style: normal;
-                font-weight: 700;
+                font-weight: 400;
                 font-display: block;
-                src: url('/fonts/silkscreen-bold.woff2') format('woff2');
+                src: url('/fonts/plus-jakarta-sans-semibold.ttf') format('truetype');
               }
               :root {
-                --font-pixel: 'Silkscreen', 'JetBrains Mono', monospace;
-                --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+                /* Names are historical (Silkscreen's old pixel-font role) — kept so
+                   every window's inline styles didn't need touching for this swap.
+                   --font-pixel is still "the label/header weight", --font-mono is
+                   still "the body weight". */
+                --font-pixel: 'Plus Jakarta Sans SemiBold', 'Plus Jakarta Sans', sans-serif;
+                --font-mono: 'Plus Jakarta Sans', sans-serif;
               }
               *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
               body { background: #f4e4c1; color: #5a3e2b; font-family: var(--font-mono); }
