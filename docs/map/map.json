@@ -5,39 +5,28 @@
     "slug": "personal_projects/pet_assistant/toasty",
     "name": "toasty",
     "root": "personal_projects/pet_assistant/toasty",
-    "shape": "nextjs",
+    "shape": "electron",
     "signals": [
+      "electron",
       "nextjs"
     ]
   },
   "layers": {
     "structure": {
       "language_counts": {
-        "js": 38,
+        "js": 22,
         "py": 1,
         "ts": 26,
         "tsx": 11
       },
-      "node_count_total": 76,
+      "node_count_total": 60,
       "node_count_kept": 25,
-      "omitted_nodes": 51,
+      "omitted_nodes": 35,
       "nodes": [
         {
           "path": "main/settings",
           "lang": "ts",
           "fan_in": 7,
-          "fan_out": 0
-        },
-        {
-          "path": "bench/.build/main/settings",
-          "lang": "js",
-          "fan_in": 6,
-          "fan_out": 0
-        },
-        {
-          "path": "bench/.build/main/db",
-          "lang": "js",
-          "fan_in": 5,
           "fan_out": 0
         },
         {
@@ -47,28 +36,10 @@
           "fan_out": 0
         },
         {
-          "path": "bench/.build/main/dateUtils",
-          "lang": "js",
-          "fan_in": 4,
-          "fan_out": 0
-        },
-        {
           "path": "main/dateUtils",
           "lang": "ts",
           "fan_in": 4,
           "fan_out": 0
-        },
-        {
-          "path": "bench/.build/main/aiShared",
-          "lang": "js",
-          "fan_in": 3,
-          "fan_out": 1
-        },
-        {
-          "path": "bench/.build/main/parseRules",
-          "lang": "js",
-          "fan_in": 3,
-          "fan_out": 2
         },
         {
           "path": "main/aiShared",
@@ -95,12 +66,6 @@
           "fan_out": 0
         },
         {
-          "path": "bench/.build/main/windows",
-          "lang": "js",
-          "fan_in": 2,
-          "fan_out": 1
-        },
-        {
           "path": "main/windows",
           "lang": "ts",
           "fan_in": 2,
@@ -111,42 +76,6 @@
           "lang": "ts",
           "fan_in": 2,
           "fan_out": 0
-        },
-        {
-          "path": "bench/.build/main/adjust",
-          "lang": "js",
-          "fan_in": 1,
-          "fan_out": 5
-        },
-        {
-          "path": "bench/.build/main/ai",
-          "lang": "js",
-          "fan_in": 1,
-          "fan_out": 5
-        },
-        {
-          "path": "bench/.build/main/providers/chain",
-          "lang": "js",
-          "fan_in": 1,
-          "fan_out": 1
-        },
-        {
-          "path": "bench/.build/main/providers/groq",
-          "lang": "js",
-          "fan_in": 1,
-          "fan_out": 4
-        },
-        {
-          "path": "bench/.build/main/reset",
-          "lang": "js",
-          "fan_in": 1,
-          "fan_out": 2
-        },
-        {
-          "path": "bench/.build/main/updater",
-          "lang": "js",
-          "fan_in": 1,
-          "fan_out": 1
         },
         {
           "path": "main/adjust",
@@ -171,100 +100,84 @@
           "lang": "ts",
           "fan_in": 1,
           "fan_out": 4
+        },
+        {
+          "path": "main/reset",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 2
+        },
+        {
+          "path": "main/spriteFolder",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
+          "path": "main/updater",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
+          "path": "renderer/components/CatSvg",
+          "lang": "tsx",
+          "fan_in": 1,
+          "fan_out": 3
+        },
+        {
+          "path": "renderer/lib/motionCss",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        {
+          "path": "renderer/lib/toastyCatGrid",
+          "lang": "ts",
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        {
+          "path": "app/_next/static/chunks/framework-14efab3c3d1ed63b",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "app/_next/static/chunks/main-ef0074dfe36c8a63",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "app/_next/static/chunks/pages/_app-3f01a8a8f3e13cfd",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "app/_next/static/chunks/pages/_error-88e38b962650355f",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "app/_next/static/chunks/pages/capture-30fe42527adbdb44",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "app/_next/static/chunks/pages/chat-5c17bfb741d15f7b",
+          "lang": "js",
+          "fan_in": 0,
+          "fan_out": 0
         }
       ],
-      "edge_count_total": 71,
-      "edge_count_kept": 42,
-      "omitted_edges": 29,
+      "edge_count_total": 42,
+      "edge_count_kept": 29,
+      "omitted_edges": 13,
       "edges": [
-        {
-          "from": "bench/.build/main/adjust",
-          "to": "bench/.build/main/aiShared"
-        },
-        {
-          "from": "bench/.build/main/adjust",
-          "to": "bench/.build/main/dateUtils"
-        },
-        {
-          "from": "bench/.build/main/adjust",
-          "to": "bench/.build/main/db"
-        },
-        {
-          "from": "bench/.build/main/adjust",
-          "to": "bench/.build/main/parseRules"
-        },
-        {
-          "from": "bench/.build/main/adjust",
-          "to": "bench/.build/main/providers/chain"
-        },
-        {
-          "from": "bench/.build/main/ai",
-          "to": "bench/.build/main/dateUtils"
-        },
-        {
-          "from": "bench/.build/main/ai",
-          "to": "bench/.build/main/db"
-        },
-        {
-          "from": "bench/.build/main/ai",
-          "to": "bench/.build/main/parseRules"
-        },
-        {
-          "from": "bench/.build/main/ai",
-          "to": "bench/.build/main/providers/groq"
-        },
-        {
-          "from": "bench/.build/main/ai",
-          "to": "bench/.build/main/settings"
-        },
-        {
-          "from": "bench/.build/main/aiShared",
-          "to": "bench/.build/main/db"
-        },
-        {
-          "from": "bench/.build/main/parseRules",
-          "to": "bench/.build/main/aiShared"
-        },
-        {
-          "from": "bench/.build/main/parseRules",
-          "to": "bench/.build/main/dateUtils"
-        },
-        {
-          "from": "bench/.build/main/providers/chain",
-          "to": "bench/.build/main/settings"
-        },
-        {
-          "from": "bench/.build/main/providers/groq",
-          "to": "bench/.build/main/aiShared"
-        },
-        {
-          "from": "bench/.build/main/providers/groq",
-          "to": "bench/.build/main/dateUtils"
-        },
-        {
-          "from": "bench/.build/main/providers/groq",
-          "to": "bench/.build/main/parseRules"
-        },
-        {
-          "from": "bench/.build/main/providers/groq",
-          "to": "bench/.build/main/settings"
-        },
-        {
-          "from": "bench/.build/main/reset",
-          "to": "bench/.build/main/db"
-        },
-        {
-          "from": "bench/.build/main/reset",
-          "to": "bench/.build/main/settings"
-        },
-        {
-          "from": "bench/.build/main/updater",
-          "to": "bench/.build/main/windows"
-        },
-        {
-          "from": "bench/.build/main/windows",
-          "to": "bench/.build/main/settings"
-        },
         {
           "from": "main/adjust",
           "to": "main/aiShared"
@@ -338,8 +251,44 @@
           "to": "main/settings"
         },
         {
+          "from": "main/reset",
+          "to": "main/db"
+        },
+        {
+          "from": "main/reset",
+          "to": "main/settings"
+        },
+        {
+          "from": "main/spriteFolder",
+          "to": "main/settings"
+        },
+        {
+          "from": "main/updater",
+          "to": "main/windows"
+        },
+        {
           "from": "main/windows",
           "to": "main/settings"
+        },
+        {
+          "from": "renderer/components/CatSvg",
+          "to": "renderer/lib/motionCss"
+        },
+        {
+          "from": "renderer/components/CatSvg",
+          "to": "renderer/lib/spriteData"
+        },
+        {
+          "from": "renderer/components/CatSvg",
+          "to": "renderer/lib/toastyFaces"
+        },
+        {
+          "from": "renderer/lib/motionCss",
+          "to": "renderer/lib/spriteData"
+        },
+        {
+          "from": "renderer/lib/spriteData",
+          "to": "renderer/lib/toastyCatGrid"
         },
         {
           "from": "renderer/lib/spriteData",
@@ -348,26 +297,539 @@
       ]
     },
     "data_model": {
-      "sources": [],
-      "table_count": 0,
-      "tables": [],
+      "sources": [
+        "app/background.js",
+        "main/db.ts",
+        "scripts/migrate-from-supabase.js"
+      ],
+      "table_count": 1,
+      "tables": [
+        {
+          "name": "tasks",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "nullable": true,
+              "pk": true
+            },
+            {
+              "name": "title",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "subtasks",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "priority",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "startDate",
+              "type": "text",
+              "nullable": true
+            },
+            {
+              "name": "dueDate",
+              "type": "text",
+              "nullable": true
+            },
+            {
+              "name": "dueTime",
+              "type": "text",
+              "nullable": true
+            },
+            {
+              "name": "category",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "notes",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "links",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "sortOrder",
+              "type": "integer",
+              "nullable": false
+            },
+            {
+              "name": "createdAt",
+              "type": "text",
+              "nullable": false
+            },
+            {
+              "name": "updatedAt",
+              "type": "text",
+              "nullable": false
+            }
+          ],
+          "column_count_total": 14,
+          "omitted_columns": 0,
+          "foreign_keys": []
+        }
+      ],
       "enums": []
     },
     "routes": {
-      "routes": [],
-      "router": "none",
-      "route_count": 0,
+      "routes": [
+        {
+          "route": "ai:adjust",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "ai:chat",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "ai:models",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "ai:parse",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "app:installUpdate",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "app:resetAll",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "app:resetSettings",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "app:resetTasks",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "app:version",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "db:clearDone",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "db:delete",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "db:list",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "db:save",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "ollama:check",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "pet:setSize",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "settings:get",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "settings:set",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "sprite:chooseFolder",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "sprite:load",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "task:applyAdjust",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "task:preview",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "task:undoAdjust",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:catClicked",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:catRightClicked",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:close",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:closeCapture",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:closeChat",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:closeMenu",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:getPetPosition",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:minimize",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:movePet",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:openCapture",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:openChat",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:openMenu",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:setAutoLaunch",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:setOpacity",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:setPetIgnore",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        },
+        {
+          "route": "window:setSkipTaskbar",
+          "kind": "ipc",
+          "methods": [
+            "handle"
+          ],
+          "dynamic": false,
+          "file": "main/background.ts"
+        }
+      ],
+      "router": "electron-ipc",
+      "route_count": 38,
       "page_count": 0,
-      "api_count": 0,
+      "api_count": 38,
       "omitted_routes": 0,
-      "middleware": "",
+      "middleware": [],
       "layouts": []
     },
     "process_flow": {
-      "flows": [],
-      "flow_count_total": 0,
-      "flow_count_kept": 0,
-      "omitted_flows": 0
+      "flows": [
+        {
+          "route": "ai:adjust",
+          "handler": "main/background.ts",
+          "modules": [
+            "main/adjust",
+            "main/ai",
+            "main/aiShared",
+            "main/dateUtils",
+            "main/db",
+            "main/parseRules",
+            "main/providers/chain",
+            "main/providers/groq"
+          ],
+          "tables_touched": [
+            "tasks"
+          ]
+        },
+        {
+          "route": "ai:chat",
+          "handler": "main/background.ts",
+          "modules": [
+            "main/adjust",
+            "main/ai",
+            "main/aiShared",
+            "main/dateUtils",
+            "main/db",
+            "main/parseRules",
+            "main/providers/chain",
+            "main/providers/groq"
+          ],
+          "tables_touched": [
+            "tasks"
+          ]
+        },
+        {
+          "route": "ai:models",
+          "handler": "main/background.ts",
+          "modules": [
+            "main/adjust",
+            "main/ai",
+            "main/aiShared",
+            "main/dateUtils",
+            "main/db",
+            "main/parseRules",
+            "main/providers/chain",
+            "main/providers/groq"
+          ],
+          "tables_touched": [
+            "tasks"
+          ]
+        },
+        {
+          "route": "ai:parse",
+          "handler": "main/background.ts",
+          "modules": [
+            "main/adjust",
+            "main/ai",
+            "main/aiShared",
+            "main/dateUtils",
+            "main/db",
+            "main/parseRules",
+            "main/providers/chain",
+            "main/providers/groq"
+          ],
+          "tables_touched": [
+            "tasks"
+          ]
+        },
+        {
+          "route": "app:installUpdate",
+          "handler": "main/background.ts",
+          "modules": [
+            "main/adjust",
+            "main/ai",
+            "main/aiShared",
+            "main/dateUtils",
+            "main/db",
+            "main/parseRules",
+            "main/providers/chain",
+            "main/providers/groq"
+          ],
+          "tables_touched": [
+            "tasks"
+          ]
+        }
+      ],
+      "flow_count_total": 38,
+      "flow_count_kept": 5,
+      "omitted_flows": 33
     },
     "design": {
       "tailwind_version": "",
@@ -388,19 +850,15 @@
     "services": {
       "env_vars": [
         "NODE_ENV",
-        "OLLAMA_URL",
-        "SUPABASE_KEY",
-        "SUPABASE_TABLE",
-        "SUPABASE_URL",
-        "example"
+        "OLLAMA_URL"
       ],
-      "env_var_count_total": 6,
+      "env_var_count_total": 2,
       "omitted_env_vars": 0,
       "detected": [
         {
-          "name": "Supabase",
+          "name": "Electron (desktop shell)",
           "via": [
-            "env"
+            "shape"
           ]
         }
       ]
@@ -416,16 +874,20 @@
       ],
       "decision_count_total": 1,
       "omitted_decisions": 0,
-      "todo_count": 9
+      "todo_count": 9,
+      "do_not_touch": [],
+      "do_not_touch_count_total": 0,
+      "omitted_do_not_touch": 0
     },
     "cross_project": {
-      "status": "pending",
-      "note": "computed at the portfolio root; see Phase 5"
+      "status": "portfolio",
+      "note": "cross-project aggregation lives in the portfolio map: `docs/map/PORTFOLIO.md` at the monorepo root"
     }
   },
   "truncated": {
-    "modules": 51,
-    "module_edges": 29
+    "modules": 35,
+    "module_edges": 13,
+    "process_flows": 33
   },
   "warnings": []
 }
