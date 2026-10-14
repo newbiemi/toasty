@@ -18,3 +18,6 @@ bench/.build/
 # Local sprite-reference scratch — stock images, never publish (repo is public)
 cat-lab/shutterstock_images/
 desktop.ini
+
+# umbrella used to ignore this
+context/
